@@ -1,0 +1,1904 @@
+<title>Interaktivní SPECT a PET</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: sticky hlavička s přepínačem SPECT/PET, vlevo osnova (Úvod + osnova od učitele), vpravo výklad s animacemi uprostřed textu a kvíz na konci.
+   Akcent se mění s modalitou: SPECT jantarový, PET modrý. */
+:root{
+  --bg:#F2F5F8; --surface:#FFFFFF; --fg:#13202C; --muted:#55657A; --line:#D3DCE6; --scan:#0B1118;
+  --spect:#A4460B; --pet:#1B52C9; --on-accent:#FFFFFF; --ok:#157347; --bad:#B42318;
+  --font-display:'Space Grotesk',system-ui,sans-serif;
+  --font-body:'Inter',system-ui,-apple-system,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E1620; --surface:#152130; --fg:#E5ECF3; --muted:#9AA9BB; --line:#263648;
+    --spect:#F2A25C; --pet:#7FB0FF; --on-accent:#0E1620; --ok:#4CC38A; --bad:#FF8A80;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E1620; --surface:#152130; --fg:#E5ECF3; --muted:#9AA9BB; --line:#263648;
+  --spect:#F2A25C; --pet:#7FB0FF; --on-accent:#0E1620; --ok:#4CC38A; --bad:#FF8A80;
+  color-scheme:dark;
+}
+.app[data-mod="spect"]{--accent:var(--spect)}
+.app[data-mod="pet"]{--accent:var(--pet)}
+.app{--accent-soft:color-mix(in srgb,var(--accent) 11%,var(--surface))}
+
+*{box-sizing:border-box}
+body{
+  background:var(--bg);color:var(--fg);font:15px/1.65 var(--font-body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:0 48px;
+}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--bg);z-index:10}
+button{font-family:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.hdr{position:sticky;top:env(safe-area-inset-top,0px);z-index:9;background:var(--bg);border-bottom:1px solid var(--line)}
+.hdr .in{max-width:1120px;margin:0 auto;padding-block:12px;display:flex;flex-wrap:wrap;gap:10px 24px;align-items:center;justify-content:space-between}
+.brand h1{margin:0;font:700 20px/1.2 var(--font-display);letter-spacing:-.01em}
+.brand p{margin:2px 0 0;color:var(--muted);font-size:13px}
+.sw{display:inline-flex;gap:3px;padding:3px;border:1px solid var(--line);border-radius:11px;background:var(--surface)}
+.sw button{min-height:40px;padding:8px 20px;border:0;border-radius:8px;background:transparent;color:var(--muted);font:600 15px var(--font-display);cursor:pointer}
+.sw button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+
+.layout{max-width:1120px;margin:20px auto 0;display:grid;grid-template-columns:minmax(0,1fr);gap:20px}
+.nav{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px}
+.nav button{display:flex;gap:10px;align-items:baseline;flex:none;padding:9px 12px;border:1px solid transparent;border-radius:9px;background:transparent;font:500 14px/1.35 var(--font-body);text-align:left;cursor:pointer;white-space:nowrap}
+.nav button:hover{background:var(--accent-soft)}
+.nav button[aria-current="page"]{background:var(--accent-soft);border-color:var(--accent)}
+.nav .no{font:500 12px var(--font-mono);color:var(--muted);min-width:1.1em}
+.nav .dot{width:7px;height:7px;border-radius:50%;border:1.5px solid var(--muted);flex:none;align-self:center}
+.nav .dot.on{background:var(--accent);border-color:var(--accent)}
+.nav em{font:500 10px var(--font-mono);font-style:normal;letter-spacing:.06em;color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:0 4px;margin-left:4px}
+.nav .sep{flex:none;width:1px;background:var(--line);margin:4px 2px}
+@media (min-width:880px){
+  .layout{grid-template-columns:250px minmax(0,1fr);gap:36px}
+  .nav{flex-direction:column;overflow:visible;position:sticky;top:calc(84px + env(safe-area-inset-top,0px));align-self:start}
+  .nav button{white-space:normal}
+  .nav .dot{margin-left:auto}
+  .nav .sep{width:auto;height:1px;margin:4px 8px}
+}
+
+main{min-width:0}
+.eyebrow{margin:0 0 6px;font:500 12px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+main h2{margin:0 0 20px;font:700 clamp(26px,5vw,36px)/1.15 var(--font-display);letter-spacing:-.02em;text-wrap:balance}
+.prose{max-width:68ch}
+.prose h3{margin:34px 0 8px;font:600 20px/1.3 var(--font-display);text-wrap:balance}
+.prose p{margin:0 0 12px}
+.prose ul,.prose ol{margin:0 0 12px;padding-left:22px}
+.prose li{margin-bottom:6px}
+.prose .key{margin:0 0 14px;padding:10px 14px;border-left:3px solid var(--accent);background:var(--accent-soft);border-radius:0 8px 8px 0}
+.prose .key p{margin:0}
+.k{font-family:var(--font-mono);font-size:.92em}
+.sec{margin:44px 0 12px;font:600 13px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.tbl{overflow-x:auto;margin:0 0 16px;max-width:100%}
+.tbl table{border-collapse:collapse;width:100%;min-width:480px;font-size:14px}
+.tbl th,.tbl td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+.tbl th{font:600 11px var(--font-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.tbl td:first-child{font-family:var(--font-mono);white-space:nowrap}
+.gloss{max-width:68ch;margin:28px 0 0;border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:4px 16px}
+.gloss summary{cursor:pointer;font:600 16px var(--font-display);padding:12px 0}
+.gloss dl{margin:0 0 12px}
+.gloss dt{font-weight:600;margin-top:10px}
+.gloss dd{margin:2px 0 0;color:var(--muted)}
+
+.widget{margin:20px 0 22px;padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--surface);display:grid;gap:12px;min-width:0}
+.widget figcaption strong{display:block;font:600 17px var(--font-display)}
+.widget figcaption span{color:var(--muted);font-size:14px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{min-height:36px;padding:5px 13px;border:1px solid var(--line);border-radius:999px;background:transparent;font:500 13px var(--font-mono);cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.chart{width:100%;height:auto;display:block}
+.chart text{fill:var(--muted);font:13px var(--font-mono)}
+.chart .sub{font-size:11px;opacity:.85}
+.chart .grid{stroke:var(--line);stroke-width:1}
+.chart .tick{stroke:var(--muted);stroke-width:1}
+.chart .curve{fill:none;stroke:var(--accent);stroke-width:3;stroke-linejoin:round}
+.chart .curve2{fill:none;stroke:var(--muted);stroke-width:2.5;stroke-dasharray:7 5}
+.chart .vl{stroke:var(--fg);stroke-width:1;stroke-dasharray:3 4;opacity:.55}
+.chart .mk{fill:var(--accent);stroke:var(--surface);stroke-width:2}
+.chart .mk2{fill:var(--muted);stroke:var(--surface);stroke-width:2}
+.chart .lab{fill:var(--fg);font-weight:500}
+.chart .leg{fill:var(--accent);font-weight:500}
+.chart .body{fill:var(--bg);stroke:var(--line);stroke-width:2}
+.chart .organ{fill:var(--line)}
+.chart .dev{fill:var(--muted);opacity:.55}
+.chart .src{fill:var(--accent)}
+.chart .ray{stroke:var(--accent);stroke-width:2;fill:none}
+.chart .ringe{fill:none;stroke:var(--line);stroke-width:1;stroke-dasharray:4 4}
+.chart .xtal{stroke:var(--muted);stroke-width:7;opacity:.45}
+.sl{display:grid;gap:4px;font-size:13px;color:var(--muted)}
+.sl input{width:100%;min-height:32px;accent-color:var(--accent)}
+.sl input:disabled{opacity:.4}
+.read{margin:0;font-variant-numeric:tabular-nums;min-height:3.4em}
+.read .muted{color:var(--muted)}
+.cv{width:100%;height:290px;display:block;border-radius:8px;background:var(--bg)}
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
+.duo .cv{height:290px}
+.btn{justify-self:start;min-height:40px;padding:8px 16px;border:1px solid var(--accent);border-radius:9px;background:var(--accent);color:var(--on-accent);font:600 14px var(--font-body);cursor:pointer}
+.btn.ghost{background:transparent;color:var(--accent)}
+.trio{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.trio figure{margin:0}
+.trio canvas{width:100%;aspect-ratio:1;display:block;image-rendering:pixelated;border:1px solid var(--line);border-radius:6px;background:var(--scan)}
+.trio figcaption{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.35}
+.big{font:700 28px var(--font-display);font-variant-numeric:tabular-nums}
+
+.chain{display:grid;gap:6px}
+.chain .row{display:grid;gap:3px}
+.chain .lb{display:flex;justify-content:space-between;gap:12px;font-size:13px;color:var(--muted)}
+.chain .lb b{color:var(--fg);font-variant-numeric:tabular-nums;white-space:nowrap}
+.chain .bar{height:8px;background:var(--line);border-radius:4px;overflow:hidden}
+.chain .bar i{display:block;height:100%;background:var(--accent);border-radius:4px}
+.chain .bar.alt i{background:var(--muted)}
+.quiz{padding:18px;border:1px solid var(--line);border-radius:12px;background:var(--surface);display:grid;gap:14px;max-width:760px}
+.quiz .meta{display:flex;justify-content:space-between;gap:12px;font:500 12px var(--font-mono);color:var(--muted)}
+.quiz .qq{margin:0;font:600 18px/1.4 var(--font-display)}
+.opts{display:grid;gap:8px}
+.opt{display:flex;gap:12px;align-items:baseline;width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:10px;background:var(--bg);text-align:left;font:15px/1.45 var(--font-body);cursor:pointer}
+.opt:hover:not(:disabled){border-color:var(--accent)}
+.opt .l{font:600 13px var(--font-mono);color:var(--muted);flex:none}
+.opt:disabled{cursor:default}
+.opt.ok{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 13%,var(--surface))}
+.opt.bad{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 12%,var(--surface))}
+.why{margin:0;padding:10px 14px;border-left:3px solid var(--accent);background:var(--accent-soft);border-radius:0 8px 8px 0;font-size:14px}
+.score{font:700 40px var(--font-display)}
+
+.soon{max-width:68ch;padding:18px;border:1px dashed var(--line);border-radius:12px;color:var(--muted)}
+.soon p{margin:0 0 8px}
+.soon ul{margin:0 0 10px;padding-left:20px}
+.srcs{max-width:68ch;font-size:13px;color:var(--muted)}
+.srcs a{color:var(--accent)}
+.pager{display:flex;justify-content:space-between;gap:12px;margin-top:40px;flex-wrap:wrap}
+.foot{margin:28px 0 0;max-width:68ch;font-size:13px;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
+</style>
+
+<div class="app" id="app" data-mod="spect">
+  <header class="hdr"><div class="in">
+    <div class="brand"><h1>Interaktivní SPECT a PET</h1><p>Výukový prototyp · koncept k validaci</p></div>
+    <div class="sw" role="group" aria-label="Modalita">
+      <button type="button" id="b-spect" aria-pressed="true">SPECT</button>
+      <button type="button" id="b-pet" aria-pressed="false">PET</button>
+    </div>
+  </div></header>
+  <div class="layout">
+    <nav class="nav" id="nav" aria-label="Osnova"></nav>
+    <main id="main"></main>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+var $=function(s,r){return (r||document).querySelector(s)};
+var nf=function(n,d){return n.toLocaleString('cs-CZ',{maximumFractionDigits:d==null?1:d})};
+function fmtT(min){
+  if(min<2) return nf(min*60,0)+' s';
+  if(min<120) return nf(min,1)+' min';
+  var h=min/60; if(h<48) return nf(h,1)+' h';
+  return nf(h/24,1)+' d';
+}
+function pl(n){return n===1?'pohled':(n>=2&&n<=4?'pohledy':'pohledů')}
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;var t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function rgb(str){
+  str=(str||'').trim();
+  var m=/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(str);
+  if(m){var h=m[1];if(h.length===3)h=h[0]+h[0]+h[1]+h[1]+h[2]+h[2];return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]}
+  m=/rgba?\(([^)]+)\)/.exec(str);
+  if(m){var p=m[1].split(/[ ,\/]+/).map(parseFloat);return [p[0],p[1],p[2]]}
+  return [200,120,40];
+}
+var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+var uid=0, redrawers=[];
+var rafT=function(fn){return setTimeout(function(){fn(performance.now())},30)};
+
+/* ---------- Osnova ---------- */
+var OUTLINE=[
+ {id:0,no:'Ú',t:'Úvod do metody',a:[]},
+ {id:1,t:'Zdroj signálu',a:['Zdroj signálu a proč tento','Jak se dostává do těla','Jak se dá vyrobit','Bezpečnost']},
+ {id:2,t:'Detekce',a:['Čím se detekuje, druh senzoru','Jak je konstruován','Převod gama → elektrický signál, krystaly','Varianta s přímou konverzí','Fotonásobiče a proč právě ony']},
+ {id:3,t:'Lokalizace zdroje',hw:1,a:['Z jakého místa v těle signál přišel','Jak to dělat co nejpřesněji','Nutné součásti přístroje (potlačení rozptylu, detekce místa vzniku)','Proč: fyzikální vysvětlení, spektra, druhy krystalů']},
+ {id:4,t:'Softwarový dopočet',a:['SW nástroje a postupy pro zlepšení kvality měření (dopočet, ne zpracování obrazu)']},
+ {id:5,t:'Provoz a ekonomika',a:['Co se nejčastěji opravuje','Životnost v EU a cena','Pořízení × provoz','Kdo platí v ČR a jak se to nemocnici vrátí']},
+ {id:6,t:'Stabilita a kontrola kvality',a:['Jak zjistíme dlouhodobou stabilitu','Jak v provozu poznáme, že je měření stále dobré','Kdo určuje pravidla','Provokační testy a fantomy']},
+ {id:7,t:'Nákup přístroje',a:['Jak se přístroje nakupují','Které technické parametry rozhodují o nákupu']},
+ {id:8,t:'Nové vs. staré přístroje',hw:1,a:['Čím se liší nové verze od starých hardwarově (ne zpracováním dat)']}
+];
+var MODNAME={spect:'SPECT · jednofotonová emisní tomografie',pet:'PET · pozitronová emisní tomografie'};
+
+var ISO={
+ spect:[
+  {n:'Tc-99m',t:360.4,d:'γ 140,5 keV · T½ 6,0 h'},
+  {n:'I-123',t:793.2,d:'γ 159 keV · T½ 13,2 h'},
+  {n:'Tl-201',t:4374,d:'rtg. záření Hg 69–83 keV · T½ 73 h'}
+ ],
+ pet:[
+  {n:'F-18',t:109.8,d:'β⁺ Emax 634 keV · T½ 109,8 min'},
+  {n:'Ga-68',t:67.7,d:'β⁺ Emax 1899 keV · T½ 67,7 min'},
+  {n:'C-11',t:20.4,d:'β⁺ Emax 960 keV · T½ 20,4 min'},
+  {n:'N-13',t:9.97,d:'β⁺ Emax 1199 keV · T½ 10,0 min'},
+  {n:'O-15',t:2.04,d:'β⁺ Emax 1732 keV · T½ 2,04 min'},
+  {n:'Rb-82',t:1.26,d:'β⁺ Emax 3378 keV · T½ 1,26 min'}
+ ]
+};
+
+/* ---------- Obsah ---------- */
+var CONTENT={spect:{},pet:{}};
+var GLOSS={spect:[],pet:[]};
+
+GLOSS.spect=[
+ ['Radionuklid','Atom s nestabilním jádrem, které se samo přemění (rozpadne) a vyšle záření.'],
+ ['Radiofarmakum','Podávaná látka: nosič (molekula, která v těle míří na určité místo) s navázaným radionuklidem (značka, která vysílá signál).'],
+ ['Aktivita (Bq)','Počet rozpadů za sekundu. 1 Bq = 1 rozpad za sekundu, 1 MBq = milion rozpadů za sekundu.'],
+ ['Poločas rozpadu (T½)','Doba, za kterou aktivita klesne na polovinu. U každého radionuklidu je pevná.'],
+ ['Foton, záření gama','Částice elektromagnetického záření (jako světlo nebo rentgen), u gama záření s vysokou energií.'],
+ ['keV','Kiloelektronvolt, jednotka energie fotonu. Čím vyšší, tím pronikavější záření.'],
+ ['Gamakamera','Přístroj se scintilačním krystalem a kolimátorem, který měří záření gama vycházející z těla.'],
+ ['Scintilátor','Krystal, který po zásahu fotonu vydá záblesk světla; ten se pak převede na elektrický signál.'],
+ ['Kolimátor','Olověná deska s úzkými otvory, která propustí jen fotony letící přibližně kolmo k detektoru.'],
+ ['Projekce','Jeden snímek z jednoho úhlu: součet signálu podél směru pohledu.'],
+ ['Sinogram','Soubor všech projekcí uspořádaný tak, že jeden řádek je jeden úhel.'],
+ ['Rekonstrukce','Výpočet 3D rozložení látky z naměřených projekcí.'],
+ ['Tomografie','Zobrazení po řezech.'],
+ ['Eluce, generátor, kit','Generátor obsahuje rodičovský radionuklid, z něhož vzniká dceřiný. Eluce je jeho vymytí fyziologickým roztokem. Kit je lahvička s nosičem, do které se eluát přidá a vznikne radiofarmakum.'],
+ ['Dávka (Gy, Sv)','Gray měří pohlcenou energii, sievert započítává biologickou účinnost záření. Používá se mSv (tisícina sievertu).'],
+ ['ALARA','Princip ochrany: dávka co nejnižší, jaké lze rozumně dosáhnout.']
+];
+GLOSS.pet=[
+ ['Pozitron (β⁺)','Antičástice elektronu: stejná hmotnost, kladný náboj. Vzniká při rozpadu některých jader.'],
+ ['Anihilace','Zánik pozitronu a elektronu, při kterém vzniknou dva fotony po 511 keV letící opačnými směry.'],
+ ['Koincidence','Zachycení dvou fotonů dvěma detektory téměř současně (okno několik nanosekund).'],
+ ['LOR (line of response)','Přímka mezi dvěma současně zasaženými detektory. Na ní leží místo anihilace.'],
+ ['Scintilátor','Krystal, který po zásahu fotonu vydá záblesk světla; ten se převede na elektrický signál.'],
+ ['PET/CT','Přístroj, který v jednom vyšetření dá funkční obraz z PET a anatomický z CT. CT se využívá i k opravě útlumu.'],
+ ['FDG','Fluorodeoxyglukóza: glukóza označená F-18. Nejpoužívanější PET radiofarmakum.'],
+ ['Radiofarmakum, aktivita, poločas','Radiofarmakum je nosič s radioaktivní značkou, aktivita je počet rozpadů za sekundu (Bq), poločas je doba, za kterou aktivita klesne na polovinu.'],
+ ['Cyklotron','Kruhový urychlovač nabitých částic. Z jeho svazku se v terčíku vyrábí PET radionuklidy.'],
+ ['Dosah pozitronu','Vzdálenost, kterou pozitron uletí od místa rozpadu k místu anihilace.'],
+ ['Rekonstrukce','Výpočet 3D rozložení látky z naměřených LOR.'],
+ ['Dávka (Gy, Sv)','Gray měří pohlcenou energii, sievert započítává biologickou účinnost záření. Používá se mSv.'],
+ ['ALARA','Princip ochrany: dávka co nejnižší, jaké lze rozumně dosáhnout.']
+];
+
+CONTENT.spect[0]={
+ blocks:[
+ `<h3>Co to je</h3>
+  <p><b>SPECT</b> (Single Photon Emission Computed Tomography, česky jednofotonová emisní výpočetní tomografie) je zobrazovací metoda nukleární medicíny. Neukazuje, jak orgány vypadají, ale <b>jak fungují</b>: kam v těle se dostala podaná látka, kolik krve protéká srdečním svalem, jak intenzivně se přestavuje kost, jak pracuje štítná žláza. Výsledkem je trojrozměrný obraz složený z řezů.</p>
+  <p>Název se dá přečíst po částech:</p>
+  <ul>
+  <li><b>Emission</b>: záření vychází z těla pacienta, protože mu byla podána radioaktivní látka.</li>
+  <li><b>Single photon</b>: měří se jednotlivé fotony záření gama, každý zvlášť.</li>
+  <li><b>Computed tomography</b>: obraz řezů se počítá z měření pořízených z mnoha úhlů.</li>
+  </ul>
+  <h3>Proč to existuje</h3>
+  <p>RTG, CT i magnetická rezonance ukazují hlavně <b>stavbu</b> těla. Nemoc ale často změní funkci dřív, než se změní tvar. Srdeční sval s nedostatečným prokrvením může na CT vypadat normálně a drobné nádorové ložisko v kosti ještě nemusí kost viditelně poškodit. Funkční obraz proto doplňuje ten anatomický.</p>
+  <p>Hlavní rozdíl proti RTG a CT je v tom, <b>kde je zdroj záření</b>. Přepni si to na schématu.</p>`,
+ {w:'emis',title:'Odkud záření přichází',lead:'Dvě zásadně odlišné metody. SPECT a PET patří mezi emisní.'},
+ `<h3>Princip v pěti krocích</h3>
+  <ol>
+  <li><b>Radiofarmakum.</b> Připraví se látka, kterou tělo zpracovává předvídatelným způsobem (nosič), a označí se radioaktivním atomem, který vysílá záření gama (značka).</li>
+  <li><b>Podání.</b> Většinou injekcí do žíly, méně často vdechnutím nebo polknutím. Látky je tak málo, že průběh sledovaného děje neovlivní (stopovací princip).</li>
+  <li><b>Rozmístění.</b> Podle vlastností nosiče se látka během desítek minut až hodin nahromadí v určitých místech. Zbytek se z krve vyloučí.</li>
+  <li><b>Snímání.</b> Pacient leží u gamakamery. Záření z těla letí všemi směry. Kamera přijme jen fotony letící téměř kolmo na její povrch. Ostatní zachytí kolimátor.</li>
+  <li><b>Výpočet.</b> Kamera se otáčí kolem pacienta a snímá z mnoha úhlů. Počítač z těchto pohledů dopočítá trojrozměrné rozložení látky.</li>
+  </ol>
+  <h3>Proč je potřeba kolimátor</h3>
+  <p>Foton gama z jednoho místa v těle letí všemi směry. Kdyby před tělem stál holý detektor, každý jeho bod by dostával fotony ze všech míst těla a vznikla by jen rozmazaná skvrna. <b>Kolimátor</b> je olověná deska s mnoha dlouhými úzkými otvory. Propustí jen fotony letící podél os otvorů, ostatní pohltí olověné přepážky. Každý bod detektoru tak „vidí“ jen úzký sloupec těla.</p>
+  <p>Zkus to na modelu. Dva zdroje v těle jsou od sebe vzdáleny, a přesto je bez kolimátoru na detektoru nerozlišíš.</p>`,
+ {w:'collim',title:'Co dělá kolimátor',lead:'Přepni kolimátor a měň délku otvorů. Sleduj, kolik fotonů projde a jak ostré jsou píky.'},
+ `<div class="key"><p><b>Kompromis, který určuje SPECT.</b> Kolimátor dává informaci o směru, a tím o poloze, ale vyhodí většinu fotonů. Delší a užší otvory dají ostřejší obraz, ale propustí méně fotonů. Ve skutečném 3D kolimátoru dosáhne detektoru řádově jen 0,01 % vyzářených fotonů (10⁻⁴). Typické prostorové rozlišení SPECT je 8–12 mm.</p></div>
+  <h3>Z pohledů k řezům (tomografie)</h3>
+  <p>Jeden snímek z jednoho úhlu je jen <b>součet signálu podél směru pohledu</b>. Nevíme z něj, v jaké hloubce zdroj leží. Když se kamera otočí a změří totéž z mnoha úhlů, souhlasí se všemi pohledy jediné prostorové rozložení zdrojů a počítač ho dopočítá. Soubor všech pohledů se jmenuje <b>sinogram</b> (každý řádek je jeden úhel).</p>
+  <p>Nejjednodušší výpočet je <b>zpětná projekce</b>: každý změřený pohled se „rozetře“ zpět přes obraz ve směru, odkud přišel. Sečtením pohledů vznikne obraz, který je ale rozmazaný. Odstraní se <b>filtrací</b>. Vyzkoušej to.</p>`,
+ {w:'recon',k:'spect',title:'Z pohledů k obrazu',lead:'Přidávej pohledy a zapni filtr. Vlevo je skutečné rozložení (včetně jednoho „studeného“ ložiska), uprostřed změřená data, vpravo rekonstrukce.'},
+ `<p>Skutečná rekonstrukce ve SPECT používá nejčastěji iterativní metody, které navíc počítají s fyzikou měření (téma Softwarový dopočet). Typicky se snímá z desítek až kolem stovky úhlů.</p>
+  <h3>K čemu se SPECT používá</h3>
+  <ul>
+  <li><b>Kosti:</b> nádorová ložiska, záněty, zlomeniny, které na RTG ještě nejsou vidět.</li>
+  <li><b>Srdce:</b> prokrvení srdečního svalu při zátěži a v klidu.</li>
+  <li><b>Mozek:</b> prokrvení a některé přenosové systémy, například při podezření na parkinsonský syndrom.</li>
+  <li><b>Štítná žláza a příštítná tělíska, plíce, ledviny:</b> funkce a prokrvení.</li>
+  </ul>
+  <h3>Jak se liší od PET</h3>
+  <p>Obě metody jsou emisní a funkční. SPECT detekuje <b>jednotlivé fotony</b> a potřebuje kolimátor, proto má nižší citlivost (řádově 100× nižší) a horší rozlišení (8–12 mm proti 4–6 mm u PET). Zato je přístroj levnější a nejčastější radionuklid Tc-99m se získává z generátoru bez cyklotronu. Podrobně v modulu PET.</p>`,
+ {gloss:1}
+ ],
+ quiz:[
+  {q:'Co znamená, že je SPECT „emisní“ metoda?',o:['Používá magnetické pole','Záření vysílá přístroj a měří se, kolik ho projde','Záření vychází z těla pacienta, z podané radioaktivní látky','Pacient musí vdechovat radioaktivní plyn'],a:2,w:'Zdroj záření je uvnitř těla. U RTG a CT je zdroj mimo tělo a měří se, kolik záření projde.'},
+  {q:'K čemu slouží kolimátor?',o:['Zesiluje signál z detektoru','Propustí jen fotony letící přibližně kolmo k detektoru, a tím určí směr','Mění energii fotonů','Chladí krystal'],a:1,w:'Bez kolimátoru by každý bod detektoru dostával fotony ze všech míst těla a obraz by byl jen rozmazaná skvrna.'},
+  {q:'Co se stane, když kolimátor zúžíme a prodloužíme jeho otvory?',o:['Obraz je ostřejší, ale detektor zachytí méně fotonů','Obraz je ostřejší a zachytí víc fotonů','Obraz je méně ostrý a zachytí méně fotonů','Nic, otvory nemají vliv'],a:0,w:'Je to kompromis rozlišení a citlivosti. Zkus to na modelu: delší otvory zúží píky, ale sníží počet zachycených fotonů.'},
+  {q:'Proč je potřeba snímat z mnoha úhlů?',o:['Aby pacient dostal menší dávku','Aby se zvýšila energie fotonů','Jeden pohled určuje jen součet podél směru, polohu v hloubce dá až kombinace úhlů','Aby se zkrátil poločas'],a:2,w:'Jeden pohled určuje jen součet signálu podél směru. Teprve z mnoha úhlů se dá dopočítat, kde přesně zdroje jsou.'},
+  {q:'Čím se SPECT zásadně liší od CT?',o:['Má lepší prostorové rozlišení než CT','Nepoužívá žádné záření','Zobrazuje pouze kosti','Ukazuje funkci (rozložení podané látky), ne jen stavbu těla'],a:3,w:'Rozlišení SPECT je naopak horší, řádově milimetry až centimetr. Jeho síla je ve funkční informaci.'}
+ ]
+};
+
+CONTENT.spect[1]={
+ blocks:[
+ `<h3>Co je radionuklid a záření gama</h3>
+  <p>Jádro některých atomů je nestabilní a samo se po čase přemění, při čemž vyšle záření. Takový atom je <b>radionuklid</b>. Rozpad nejde urychlit, zpomalit ani ovlivnit chemií, řídí se jen pravděpodobností.</p>
+  <p><b>Záření gama</b> je elektromagnetické záření (proud fotonů) jako světlo nebo rentgen, jen s mnohem vyšší energií. Energie fotonu se udává v <b>keV</b>: viditelné světlo má jednotky eV, diagnostický rentgen desítky keV, SPECT nuklidy jednotky až stovky keV. Čím vyšší energie, tím pronikavější záření.</p>
+  <p>Kolik jader se rozpadá, udává <b>aktivita</b> v becquerelech: 1 Bq je jeden rozpad za sekundu. Pacientovi se podávají stovky MBq, tedy stovky milionů rozpadů za sekundu. Aktivita s časem klesá. <b>Poločas rozpadu T½</b> je doba, za kterou klesne na polovinu, a je pro každý nuklid pevný.</p>`,
+ {w:'decay',k:'spect',title:'Rozpad radionuklidu',lead:'Posuň čas a sleduj, kolik aktivity zbývá. Každý poločas ji sníží na polovinu.'},
+ `<h3>Co chceme od dobrého SPECT nuklidu</h3>
+  <ul>
+  <li><b>Záření gama vhodné energie</b>, zhruba 100–200 keV. Příliš nízká energie se v těle pohltí dřív, než unikne. Příliš vysoká projde kolimátorem i krystalem a obraz je horší.</li>
+  <li><b>Poločas odpovídající vyšetření</b>, tedy hodiny. Příliš krátký se nestihne dopravit a snímat, příliš dlouhý zbytečně prodlužuje ozáření.</li>
+  <li><b>Žádné nebo málo záření β</b> (letící částice). Z těla nevyletí, takže nepřispěje k obrazu, jen zvyšuje dávku.</li>
+  <li><b>Chemie</b>, která dovolí nuklid navázat na nosič.</li>
+  <li><b>Dostupnost a cena.</b></li>
+  </ul>
+  <div class="tbl"><table>
+  <thead><tr><th>Nuklid</th><th>Záření</th><th>Poločas</th><th>K čemu se hodí</th></tr></thead>
+  <tbody>
+  <tr><td>Tc-99m</td><td>γ 140 keV</td><td>6,0 h</td><td>většina vyšetření: kosti, srdce, plíce, ledviny, štítná žláza</td></tr>
+  <tr><td>I-123</td><td>γ 159 keV</td><td>13,2 h</td><td>štítná žláza, mozek, nervové zásobení srdce</td></tr>
+  <tr><td>Tl-201</td><td>rtg. záření 69–83 keV</td><td>73 h</td><td>srdeční sval (starší metoda)</td></tr>
+  <tr><td>In-111</td><td>γ 171 a 245 keV</td><td>2,8 d</td><td>zánět (značené bílé krvinky), některé nádory</td></tr>
+  <tr><td>Ga-67</td><td>γ 93, 185, 300 keV</td><td>3,3 d</td><td>zánět, některé lymfomy</td></tr>
+  </tbody></table></div>
+  <div class="key"><p><b>Proč dominuje Tc-99m.</b> Má ideální energii 140 keV, poločas 6 h, rozpadá se téměř jen vyzářením fotonu gama (izomerní přechod) a dá se vyrábět v nemocnici z generátoru. Chemie technecia umožňuje navázat ho na velké množství nosičů.</p></div>
+  <h3>Jak se dostane do těla</h3>
+  <p>Samotný radionuklid by se v těle choval podle své chemie, ne podle toho, co chceme zobrazit. Proto se naváže na <b>nosič</b>, molekulu, jejíž chování v těle známe. Hotová látka je <b>radiofarmakum</b>. Nosič určuje <b>kam</b> se látka dostane, radionuklid <b>prozradí</b>, kde je.</p>
+  <p>Několik příkladů, jak to funguje:</p>
+  <ul>
+  <li><b>Kosti.</b> Nosič je molekula, která se váže na minerál kostní tkáně. Víc jí zachytí místa, kde se kost právě intenzivně přestavuje: zlomenina, zánět nebo nádorové ložisko. Tam je na obraze vyšší signál.</li>
+  <li><b>Srdeční sval.</b> Nosič proudí krví a zachytí se v buňkách srdečního svalu úměrně tomu, kolik krve k nim dorazí. Za zúženou tepnou je látky méně, vznikne místo s nižším signálem.</li>
+  <li><b>Plíce.</b> Podají se nepatrné částice větší než nejmenší plicní cévky. Uváznou tam, kam proudí krev. Chybějící signál znamená místo, kam krev neteče, třeba při plicní embolii.</li>
+  <li><b>Štítná žláza.</b> Potřebuje jód na tvorbu hormonů, proto zachytává jód i chemicky podobný technecistan.</li>
+  </ul>
+  <p>Podává se nejčastěji <b>injekcí do žíly</b>, někdy vdechnutím (plyny a aerosoly při vyšetření plic) nebo polknutím (např. sledování vyprazdňování žaludku). Mezi podáním a snímáním je doba čekání od desítek minut po hodiny. Látka musí dojít na místo a z krve zmizet nadbytek, aby nezhoršoval kontrast. Množství látky je nepatrné, takže sledovaný děj neovlivní.</p>
+  <h3>Jak se dá vyrobit</h3>
+  <p>Tc-99m má poločas jen 6 h a z výrobny by se do nemocnice nedovezl. Řešení: dopravit <b>rodiče s delším poločasem</b> a nechat z něj dceřiný nuklid vznikat přímo na místě. Rodič je <b>Mo-99</b> (T½ 66 h), dcera Tc-99m. Zařízení se jmenuje <b>generátor</b>.</p>
+  <ol>
+  <li>V jaderném reaktoru vzniká Mo-99, nejčastěji štěpením uranu U-235, ze kterého se chemicky vyizoluje.</li>
+  <li>Mo-99 je navázán na kolonu z oxidu hlinitého ve stíněném generátoru, který se doveze do nemocnice.</li>
+  <li>Mo-99 se rozpadá na Tc-99m, který vzniká uvnitř kolony.</li>
+  <li>Přes kolonu se protlačí fyziologický roztok (<b>eluce</b>). Vymyje Tc-99m jako technecistan, Mo-99 zůstane zachycen.</li>
+  <li>Eluát se smíchá s <b>kitem</b>: lahvičkou se sterilním práškem nosiče a redukčním činidlem (typicky cínatá sůl), které technecium převede do podoby schopné se navázat. Vznikne radiofarmakum. Před podáním se ověřuje jeho radiochemická čistota.</li>
+  </ol>`,
+ {w:'bateman',title:'Generátor Mo-99/Tc-99m',lead:'Po eluci je kolona prázdná od Tc-99m a ten dorůstá z Mo-99. Posuň čas po eluci.'},
+ `<p>Tc-99m po eluci znovu dorůstá a největší množství je zhruba po 23 h, proto se generátor obvykle eluuje jednou denně. Mo-99 mezitím ubývá (poločas 66 h), takže se generátor po zhruba týdnu vymění. Mo-99 se vyrábí jen v několika málo reaktorech na světě, proto se při jejich odstávkách objevují výpadky dodávek. Cyklotronová výroba Tc-99m se vyvíjí jako alternativa.</p>
+  <h3>Bezpečnost</h3>
+  <p>Ionizující záření může poškodit DNA. Pro ochranu se předpokládá, že riziko roste s dávkou a že bezpečný práh neexistuje. Dávka se udává v <b>sievertech</b> (Sv), v praxi v mSv (tisícina Sv). Pro orientaci: průměrné roční ozáření z přírodních zdrojů je ve světě ≈ 2,4 mSv, kostní scintigrafie s Tc-99m dá pacientovi řádově 4 mSv.</p>
+  <ul>
+  <li><b>Pacient.</b> Vyšetření musí být <b>ospravedlněné</b> (přínos převáží riziko) a <b>optimalizované</b> (podá se nejnižší aktivita, která dá dostatečný obraz). Limit dávky pro pacienta neexistuje, platí ospravedlnění a optimalizace, k tomu slouží diagnostické referenční úrovně.</li>
+  <li><b>Personál.</b> Pro něj dávkové limity platí. Ochrana stojí na třech věcech: <b>čas</b> (pracovat co nejkratší dobu), <b>vzdálenost</b> (dávka klesá s druhou mocninou vzdálenosti) a <b>stínění</b> (olovo, stíněné stříkačky, stíněná přípravna). K tomu osobní dozimetry a vymezené zóny pracoviště.</li>
+  <li><b>Okolí.</b> Pacienti dostávají pokyny: hodně pít a často močit, omezit blízký kontakt s dětmi a těhotnými několik hodin. Odpad se nechá rozpadnout: po 10 poločasech (u Tc-99m 60 h) zbývá asi 0,1 % aktivity.</li>
+  </ul>
+  <p>Práce s radionuklidy v ČR podléhá dohledu <b>SÚJB</b> (Státní úřad pro jadernou bezpečnost) podle atomového zákona (263/2016 Sb.) a jeho prováděcích vyhlášek, například 422/2016 Sb.</p>`
+ ],
+ src:`Orientační hodnoty kolimátoru a rozlišení: <a href="https://socr.umich.edu/BPAD1/BPAD1_notes/BPAD1_Chap06_NuclearMedicine_PET_SPECT.html" target="_blank" rel="noopener">SOCR, učební poznámky k PET a SPECT</a>. Údaje o nuklidech (poločasy, energie) a dávkách jsou obecně známé hodnoty, které je potřeba doložit proti NuDat a publikacím ICRP 106/107.`,
+ quiz:[
+  {q:'Proč je Tc-99m nejpoužívanějším nuklidem ve SPECT?',o:['Emituje pozitrony, takže stačí koincidenční detekce','Je téměř čistý γ‑zářič 140 keV s poločasem ≈ 6 h','Má poločas několik dní, takže se dá skladovat','Vyrábí se přímo v nemocničním cyklotronu'],a:1,w:'140 keV dobře zvládne NaI(Tl) i olověný kolimátor a poločas 6 h stačí na přípravu a vyšetření. Pozitrony patří do PET a Tc‑99m se získává z generátoru.'},
+  {q:'Co je uvnitř generátoru Mo-99/Tc-99m?',o:['Cyklotronový terčík s vodou obohacenou O‑18','Miniaturní reaktor','Kolona s navázaným Mo‑99, ze které se vymývá Tc‑99m','Hotové radiofarmakum připravené k aplikaci'],a:2,w:'Mo‑99 (T½ 66 h) zůstává na koloně a rozpadá se na Tc‑99m. Fyziologický roztok vymyje technecistan, nosič se přidá až poté z kitu.'},
+  {q:'Kdy je po předchozí eluci v generátoru nejvíc Tc-99m?',o:['Zhruba po 23 h','Hned po eluci','Po ≈ 6 h (jeden poločas Tc‑99m)','Po ≈ 66 h (jeden poločas Mo‑99)'],a:0,w:'Dorůstání vrcholí, když je vznik z Mo‑99 stejně rychlý jako rozpad Tc‑99m. Z poločasů 66 h a 6 h vychází ≈ 23 h, v grafu je to vidět.'},
+  {q:'Co určuje, kam se radiofarmakum v těle dostane?',o:['Energie gama záření','Typ detektoru v kameře','Poločas radionuklidu','Chemický nosič, na který je nuklid navázaný'],a:3,w:'Radionuklid jen vysílá signál. Místo určuje nosič, například molekula, která se váže na kost, nebo částice, které uváznou v plicních kapilárách.'},
+  {q:'Kolik aktivity Tc-99m zbude po 24 h (4 poločasy)?',o:['≈ 50 %','≈ 25 %','≈ 12 %','≈ 6 %'],a:3,w:'4 poločasy znamenají 1/2⁴ = 1/16, tedy ≈ 6 %.'},
+  {q:'Proč se do radiofarmaka dává jen nepatrné množství látky?',o:['Aby se rychleji rozpadla','Aby látka neovlivnila sledovaný děj v těle (stopovací princip)','Aby měla vyšší energii','Aby ji kolimátor nepohltil'],a:1,w:'Cílem je jen sledovat, kudy látka jde, ne zasahovat do fyziologie. Proto stačí velmi malé látkové množství.'},
+  {q:'Proč je žádoucí, aby nuklid nevyzařoval částice β?',o:['β částice zesilují obraz','β částice se nemohou rozpadnout','β částice poškozují kolimátor','β částice nevyletí z těla, takže jen zvyšují dávku'],a:3,w:'Do obrazu přispívají jen fotony, které z těla uniknou. Částice β se v tkáni zastaví a jejich energie zůstane pacientovi.'}
+ ]
+};
+
+CONTENT.pet[0]={
+ blocks:[
+ `<h3>Co to je</h3>
+  <p><b>PET</b> (Positron Emission Tomography, česky pozitronová emisní tomografie) je stejně jako SPECT <b>funkční a emisní</b> metoda: ukazuje, jak tkáně pracují, na základě záření z podané radioaktivní látky. Liší se tím, jaké záření se měří. Radionuklid vysílá <b>pozitron</b>, který se hned srazí s elektronem a vzniknou <b>dva fotony po 511 keV</b> letící opačnými směry. Zachytit se dají jako dvojice.</p>
+  <p>V praxi se PET dělá téměř vždy jako <b>PET/CT</b> (nebo PET/MR): PET dává funkci, CT stavbu těla a pomáhá s opravou útlumu záření.</p>
+  <h3>Proč to existuje</h3>
+  <p>Nejběžnější radiofarmakum je <b>FDG</b>, glukóza označená radioaktivním fluorem. Ukáže, kde tkáň spotřebovává hodně glukózy. To dokáže odhalit nádorová ložiska, která na CT ještě nemají zřetelný tvar, zjistit rozsah nemoci, posoudit odpověď na léčbu a zobrazit zánět. Další použití jsou v neurologii (demence, epilepsie) a kardiologii (životaschopnost srdečního svalu).</p>
+  <p>Přepni si schéma a porovnej, odkud záření přichází u různých metod.</p>`,
+ {w:'emis',title:'Odkud záření přichází',lead:'Dvě zásadně odlišné metody. SPECT a PET patří mezi emisní.'},
+ `<h3>Princip v krocích</h3>
+  <ol>
+  <li><b>Radiofarmakum.</b> Nejčastěji FDG: glukóza, ve které je jedna skupina nahrazena radioaktivním fluorem-18.</li>
+  <li><b>Podání</b> injekcí do žíly.</li>
+  <li><b>Rozmístění.</b> U FDG zhruba hodinu, pacient při ní odpočívá, aby se svaly nezatěžovaly a nevychytávaly látku.</li>
+  <li><b>Rozpad.</b> Jádro fluoru vyšle pozitron. Ten uletí zlomek milimetru až milimetry, srazí se s elektronem a anihiluje. Vzniknou dva fotony 511 keV letící přibližně opačně.</li>
+  <li><b>Detekce.</b> Pacient leží v prstenci detektorů. Dva fotony zasáhnou protilehlé detektory <b>téměř současně</b> (koincidence, okno několik nanosekund).</li>
+  <li><b>Výpočet.</b> Každá takto zachycená dvojice vymezí přímku (<b>LOR</b>), na které anihilace proběhla. Z milionů LOR se spočítá obraz.</li>
+  </ol>
+  <h3>Elektronická kolimace: proč je PET citlivější</h3>
+  <p>SPECT potřebuje olověný kolimátor, který zahodí většinu fotonů. PET informaci o směru získá jinak: dva fotony letí opačně, takže stačí zaznamenat, <b>které dva detektory zasáhly zároveň</b>. Žádné olovo nic nezahazuje, proto se tomu říká elektronická kolimace. Citlivost PET (podíl vyzářených fotonů, které se zaznamenají) je řádově 10⁻², u SPECT 10⁻⁴, tedy zhruba <b>stokrát vyšší</b>.</p>
+  <p>Na modelu uvidíš, jak se z jednotlivých přímek poskládá obraz.</p>`,
+ {w:'lor',title:'Přímky koincidence (LOR)',lead:'Posouvej počet zachycených událostí. Každá dvojice fotonů je jedna přímka. Průsečíky ukážou, kde jsou zdroje.'},
+ `<p>Jedna LOR říká jen „anihilace proběhla někde na této přímce“. Poloha vznikne až průnikem mnoha přímek. Při malém počtu událostí je obraz zrnitý (statistický šum), proto se vyšetření prodlužuje nebo se podá větší aktivita.</p>
+  <h3>Co omezuje ostrost</h3>
+  <ul>
+  <li><b>Dosah pozitronu.</b> PET vidí místo anihilace, ne místo rozpadu (viz téma Zdroj signálu).</li>
+  <li><b>Nekolinearita.</b> Fotony letí pod úhlem 180° ± 0,25°, ne přesně opačně.</li>
+  <li><b>Velikost krystalů detektoru</b> a to, jak přesně se určí, který krystal foton zasáhl.</li>
+  </ul>
+  <p>Výsledné rozlišení klinického PET je typicky 4–6 mm, tedy lepší než u SPECT (8–12 mm).</p>
+  <h3>Z přímek k řezům (rekonstrukce)</h3>
+  <p>Na stejném principu jako u SPECT: změřená data jsou souhrnem „pohledů“ z mnoha úhlů (sinogram) a počítač z nich dopočítá rozložení látky. Rozdíl je v tom, že PET má všechny úhly najednou, protože prstenec obklopuje celé tělo. Zkus si, jak počet pohledů a filtrace ovlivní obraz.</p>`,
+ {w:'recon',k:'pet',title:'Z pohledů k obrazu',lead:'Přidávej pohledy a zapni filtr. Vlevo je skutečné rozložení, uprostřed změřená data, vpravo rekonstrukce.'},
+ `<h3>K čemu se PET používá</h3>
+  <ul>
+  <li><b>Onkologie:</b> nalezení nádoru a jeho rozsahu, kontrola odpovědi na léčbu.</li>
+  <li><b>Neurologie:</b> demence, ložiska epilepsie.</li>
+  <li><b>Kardiologie:</b> životaschopnost a prokrvení srdečního svalu.</li>
+  <li><b>Zánět a infekce.</b></li>
+  </ul>
+  <h3>Jak se liší od SPECT</h3>
+  <ul>
+  <li>Měří <b>dvojice fotonů 511 keV</b> (koincidence) místo jednotlivých fotonů s kolimátorem.</li>
+  <li>Je zhruba <b>100× citlivější</b> a má lepší rozlišení (4–6 mm).</li>
+  <li>Radionuklidy jsou krátkodobé a často potřebují <b>cyklotron</b> poblíž, přístroj je dražší.</li>
+  <li>Radionuklidy lehkých prvků (uhlík, dusík, kyslík, fluor) umožňují označit molekuly, aniž by se jejich chemie změnila.</li>
+  </ul>`,
+ {gloss:1}
+ ],
+ quiz:[
+  {q:'Co je „koincidence“ v PET?',o:['Současné (v řádu nanosekund) zachycení dvou fotonů dvěma detektory','Rozpad dvou jader najednou','Odraz fotonu od krystalu','Dvojitá injekce radiofarmaka'],a:0,w:'Dvojice fotonů z jedné anihilace dorazí k detektorům téměř současně. Právě tato shoda určuje přímku LOR.'},
+  {q:'Proč PET nepotřebuje olověný kolimátor?',o:['Fotony 511 keV olovem neprojdou','Směr vyplývá z toho, že dva fotony letí opačně, a z detekce dvojice','Kolimátor je v CT části','PET měří jen blízké zdroje'],a:1,w:'Informaci o směru dává shoda dvou detektorů. Říká se tomu elektronická kolimace.'},
+  {q:'Kolikrát (řádově) je PET citlivější než SPECT?',o:['Zhruba stejně','≈ 2×','≈ 100×','≈ 10 000 000×'],a:2,w:'Citlivost PET je řádově 10⁻², SPECT 10⁻⁴ vyzářených fotonů. SPECT většinu fotonů zahodí v kolimátoru.'},
+  {q:'Co je to LOR?',o:['Dosah pozitronu v tkáni','Typ scintilačního krystalu','Ztráta signálu při rozptylu','Přímka spojující dva současně zasažené detektory, na které leží místo anihilace'],a:3,w:'LOR (line of response) je přímka odpovědi. Samotná LOR polohu neurčí, až průsečík mnoha LOR.'},
+  {q:'Proč je při malém počtu událostí obraz zrnitý?',o:['Statistický šum: málo přímek se jednoznačně nepotvrdí','Detektor se přehřívá','Pozitron letí dál','Kolimátor je příliš široký'],a:0,w:'Z několika přímek nelze poznat, kde se protínají. Čím víc událostí, tím méně šumu.'}
+ ]
+};
+
+CONTENT.pet[1]={
+ blocks:[
+ `<h3>Pozitron a anihilace</h3>
+  <p>V jádře některých radionuklidů je příliš mnoho protonů. Jádro se stabilizuje tak, že se jeden proton změní na neutron a vyletí <b>pozitron</b> (β⁺) a neutrino. Pozitron je <b>antičástice elektronu</b>: stejná hmotnost, ale kladný náboj.</p>
+  <p>V tkáni pozitron ztrácí energii srážkami a po uletění <b>desetin až jednotek milimetru</b> se potká s elektronem. Obě částice zaniknou (<b>anihilace</b>) a jejich hmotnost se přemění na energii: vzniknou <b>dva fotony</b>, každý s energií <b>511 keV</b>, což odpovídá klidové energii elektronu. Kvůli zachování hybnosti letí téměř přesně opačně (180° ± 0,25°).</p>
+  <div class="key"><p><b>511 keV je stejné pro všechny PET nuklidy.</b> Přístroj proto hledá jedinou energii, ať je radionuklid jakýkoli.</p></div>`,
+ {w:'annih',title:'Pozitron, anihilace a chyba polohy',lead:'Vlevo je celé tělo v prstenci detektorů, vpravo silně přiblížený detail zdroje (mřížka 1 mm). Vyšli pozitron: nejdřív uletí kousek od zdroje, pak anihiluje a oba fotony se zachytí v detektorech. Přímka mezi nimi zdroj mine o vyznačenou vzdálenost.'},
+ `<p>PET vidí <b>místo anihilace, ne místo rozpadu</b>. Dosah pozitronu je proto první fyzikální limit ostrosti: u F-18 je zanedbatelný, u Ga-68 a hlavně Rb-82 už znatelný.</p>
+  <h3>Které nuklidy a proč</h3>
+  <p>Hlavní přednost PET je v tom, že lze použít radionuklidy <b>lehkých prvků: uhlíku, dusíku, kyslíku a fluoru</b>. Uhlík, dusík a kyslík mají stejnou chemii jako stabilní atomy v těle, takže značená molekula je chemicky totožná s přirozenou. Fluor-18 nahrazuje malou skupinu (např. hydroxyl) a tělo to většinou toleruje, proto FDG. Kovy (Ga-68, Rb-82) se na nosič vážou přes chelátor.</p>
+  <div class="tbl"><table>
+  <thead><tr><th>Nuklid</th><th>Poločas</th><th>Dosah pozitronu</th><th>Výroba</th><th>Použití</th></tr></thead>
+  <tbody>
+  <tr><td>F-18</td><td>109,8 min</td><td>≈ 0,6 mm</td><td>cyklotron</td><td>FDG (glukóza), PSMA, kosti</td></tr>
+  <tr><td>Ga-68</td><td>67,7 min</td><td>≈ 3 mm</td><td>generátor Ge-68/Ga-68</td><td>PSMA, neuroendokrinní nádory</td></tr>
+  <tr><td>C-11</td><td>20,4 min</td><td>≈ 1,2 mm</td><td>cyklotron na místě</td><td>mozkové receptory, některé nádory</td></tr>
+  <tr><td>N-13</td><td>10,0 min</td><td>≈ 1,8 mm</td><td>cyklotron na místě</td><td>prokrvení srdce (amoniak)</td></tr>
+  <tr><td>O-15</td><td>2,04 min</td><td>≈ 3 mm</td><td>cyklotron na místě</td><td>prokrvení (voda)</td></tr>
+  <tr><td>Rb-82</td><td>1,26 min</td><td>≈ 6 mm</td><td>generátor Sr-82/Rb-82</td><td>prokrvení srdce</td></tr>
+  </tbody></table></div>
+  <p>Střední dosah v tabulce je orientační hodnota z literatury a bude ještě ověřena.</p>
+  <h3>FDG: co to je a proč svítí nádory</h3>
+  <p>FDG je <b>glukóza, ve které je jedna skupina nahrazena radioaktivním fluorem-18</b>. Buňka ji přijme stejnou cestou jako glukózu: přes glukózové transportéry a první enzym spotřeby cukru (hexokináza) ji označí fosfátem na FDG-6-fosfát. Další zpracování ale enzymy neprovedou, a FDG proto v buňce <b>zůstane zachycena</b>.</p>
+  <p>Svítí tedy místa, kde buňky glukózu spotřebovávají hodně. Mnohé nádory mají zvýšený příjem glukózy (využívají ji i v přítomnosti kyslíku, tzv. Warburgův jev). Je třeba počítat s tím, že FDG se normálně hromadí i v mozku, srdci a močových cestách a také v zánětu, a že některé nádory FDG vychytávají slabě. Interpretace proto patří do rukou zkušeného lékaře.</p>
+  <p><b>Příprava pacienta.</b> Podle doporučení EANM (verze 1.0) pacient nejí alespoň 6 h před podáním, protože glukóza v krvi soutěží s FDG o transportéry a inzulin by FDG vtáhl do svalů a tuku. Před aplikací se měří glykémie (doporučení verze 1.0 uvádí hodnotu pod 7 mmol/l, konkrétní limit stanoví protokol pracoviště). Mezi podáním a snímáním je přibližně 60 minut. Aktivita bývá kolem 2,5 MBq/kg u 3D přístrojů, tedy řádově stovky MBq.</p>
+  <h3>Jak se dá vyrobit</h3>
+  <p><b>Cyklotron</b> je kruhový urychlovač. Protony kroužící ve vakuu mezi dvěma elektrodami ve tvaru písmene D drží na kruhové dráze magnetické pole a elektrické pole je při každém oběhu urychlí. Po tisících oběhů mají energii řádově 10–20 MeV. Svazek pak dopadne na terčík z <b>vody obohacené izotopem kyslíku O-18</b>. Reakcí <span class="k">¹⁸O(p,n)¹⁸F</span> proton jádro kyslíku zachytí, uvolní neutron a vznikne F-18 (jako fluorid).</p>
+  <p>Fluorid se v automatickém syntezátoru ve stíněné „horké cele“ zabuduje do molekuly FDG a výsledek se přečistí. Nakonec následuje <b>kontrola kvality</b>: čistota, pH, bakteriální endotoxiny, sterilita. Radiofarmakum je léčivý přípravek s požadavky správné výrobní praxe.</p>
+  <p>Poločas 110 min znamená, že FDG se musí vyrobit blízko a dovézt rychle. Spočítej si proč.</p>`,
+ {w:'logist',title:'Kolik se musí vyrobit, aby dorazilo dost',lead:'Při aplikaci má být 300 MBq. Kolik aktivity musí být na začátku převozu?'},
+ `<p>Nuklidy Ga-68 a Rb-82 se získávají z generátorů. Rodič Ge-68 (T½ 271 dnů) vydrží generátoru řadu měsíců, Sr-82 (T½ 25 dnů) zhruba měsíc. Nuklidy C-11, N-13 a O-15 se kvůli minutovým poločasům vyrábějí cyklotronem přímo u přístroje.</p>
+  <h3>Bezpečnost</h3>
+  <p>Fotony 511 keV jsou mnohem pronikavější než fotony Tc-99m (140 keV). Poloviční vrstva olova, která zeslabí záření na polovinu, je zhruba 0,3 mm pro 140 keV, ale kolem 4 mm pro 511 keV, tedy více než desetkrát tlustší. Dávkový příkon z F-18 na jednotku aktivity je také několikanásobně vyšší než u Tc-99m. Práce proto probíhá za silnějším stíněním (olovo, wolfram), s automatickými dávkovači a injektory a s prstovými dozimetry.</p>
+  <ul>
+  <li><b>Pacient.</b> Dávka z FDG je asi 0,019 mSv/MBq, takže při ≈ 250 MBq vychází zhruba 5 mSv. U PET/CT se přičítá dávka z CT, která závisí na protokolu. Platí ospravedlnění a optimalizace stejně jako u SPECT.</li>
+  <li><b>Personál.</b> Čas, vzdálenost, stínění, osobní dozimetry a vymezené zóny. Dávky na ruce se sledují zvlášť.</li>
+  <li><b>Okolí.</b> FDG se vylučuje močí, proto pacient pije, často močí a po vyšetření omezuje blízký kontakt s dětmi a těhotnými po dobu stanovenou pracovištěm. Odpad F-18 se nechá rozpadnout: po 10 poločasech (≈ 18 h) zbývá asi 0,1 % aktivity.</li>
+  </ul>
+  <p>Dohled provádí <b>SÚJB</b> podle atomového zákona (263/2016 Sb.) a jeho prováděcích vyhlášek.</p>`
+ ],
+ src:`Doporučení pro FDG PET/CT: <a href="https://link.springer.com/content/pdf/10.1007/s00259-009-1297-4.pdf" target="_blank" rel="noopener">EANM procedure guidelines for tumour PET imaging, verze 1.0</a>. Citlivost, rozlišení a nekolinearita: <a href="https://socr.umich.edu/BPAD1/BPAD1_notes/BPAD1_Chap06_NuclearMedicine_PET_SPECT.html" target="_blank" rel="noopener">SOCR, učební poznámky k PET a SPECT</a>. Údaje o nuklidech (poločasy, dosahy), poloviční vrstvy a dávky jsou obecně známé hodnoty, které je potřeba doložit proti NuDat a publikacím ICRP 106/107.`,
+ quiz:[
+  {q:'Co je u PET zdrojem signálu?',o:['Dva fotony po 511 keV vznikající anihilací pozitronu','Jeden foton 140 keV z izomerního přechodu','Světlo z fotonásobiče','Elektrony z konverze v krystalu'],a:0,w:'Pozitron anihiluje s elektronem na dva fotony po 511 keV letící zhruba opačně. Fotonásobič a krystal jsou až součástí detekce.'},
+  {q:'Proč se FDG hromadí v místech s vysokou spotřebou glukózy?',o:['Váže se přímo na DNA nádorových buněk','Po fosforylaci na FDG‑6‑fosfát se dál nezpracovává a zůstane v buňce','Rozpouští se v tuku','Vyzařuje jen uvnitř nádorů'],a:1,w:'FDG vstupuje do buňky jako glukóza, hexokináza ji fosforyluje, ale další metabolismus nenásleduje (metabolic trapping).'},
+  {q:'Co vyplývá z poločasu F-18 (≈ 110 min)?',o:['Generátor Mo‑99 musí být přímo na oddělení','Nuklid lze skladovat týdny','Cyklotron musí být poblíž a rozvoz proběhne během hodin','Pacienta není potřeba před zářením chránit'],a:2,w:'Za 110 min klesne aktivita na polovinu, za 6 h zbývá ≈ 10 %. Proto se FDG vyrábí blízko a dováží se hned.'},
+  {q:'Proč je u PET náročnější stínění než u SPECT s Tc-99m?',o:['Poločas je mnohem delší','Fotony 511 keV jsou pronikavější než 140 keV, je třeba tlustší stínění','Pozitrony prostoupí stínění samy','Detektor sám záření vyzařuje'],a:1,w:'Čím vyšší energie fotonu, tím tlustší stínění potřebujeme. Poloviční vrstva olova je u 511 keV více než desetkrát tlustší než u 140 keV.'},
+  {q:'Který nuklid dá z hlediska dosahu pozitronu ostřejší obraz?',o:['Oba stejně','Ga‑68, protože má vyšší energii pozitronu','Ga‑68, protože má kratší poločas','F‑18, protože jeho pozitron uletí kratší dráhu'],a:3,w:'Pozitron s nižší energií (F‑18) uletí méně než 1 mm, Ga‑68 zhruba 3 mm. Anihilace proběhne blíž ke zdroji a rozlišení je lepší.'},
+  {q:'Proč pacient před FDG PET přichází nalačno?',o:['Glukóza v krvi soutěží s FDG a inzulin by FDG vtáhl do svalů a tuku, což sníží kontrast','Aby se zrychlil rozpad F‑18','Aby cyklotron stihl FDG vyrobit','Kvůli kontrastní látce pro CT'],a:0,w:'Po jídle je v krvi hodně glukózy a inzulinu. FDG se pak vychytává i ve tkáních, které nás nezajímají, a kontrast nádoru klesne.'},
+  {q:'Co se stane s aktivitou F-18 během dvouhodinového převozu?',o:['Zůstane stejná','Klesne na ≈ 1 %','Klesne zhruba na polovinu','Vzroste'],a:2,w:'120 min je zhruba jeden poločas (109,8 min), takže zbyde ≈ 47 %. Proto se vyrábí s rezervou.'}
+ ]
+};
+
+GLOSS.spect.push(
+ ['Fotoefekt','Foton zanikne a celou svou energii předá jednomu elektronu. Převládá u materiálů s vysokým protonovým číslem.'],
+ ['Comptonův rozptyl','Foton předá elektronu jen část energie a změní směr.'],
+ ['Světelný výtěžek','Počet světelných fotonů, které krystal vyšle na 1 keV pohlcené energie.'],
+ ['Dosvit','Doba, za kterou záblesk světla v krystalu doznívá. Krátký dosvit dovolí zpracovat víc událostí za sekundu.'],
+ ['Fotonásobič (PMT)','Vakuová trubice, která přemění světlo na elektrony a řetězem dynod je zesílí zhruba milionkrát.'],
+ ['Energetické rozlišení','Šířka fotopíku (FWHM) v procentech jeho energie. Menší číslo znamená přesnější měření energie.'],
+ ['Angerova logika','Výpočet polohy záblesku jako váženého průměru signálů fotonásobičů, součet signálů udává energii.'],
+ ['CZT','Polovodič CdZnTe, který přemění foton gama přímo na elektrický náboj.']
+);
+GLOSS.pet.push(
+ ['Fotoefekt','Foton zanikne a celou svou energii předá jednomu elektronu. Převládá u materiálů s vysokým protonovým číslem.'],
+ ['Comptonův rozptyl','Foton předá elektronu jen část energie a změní směr.'],
+ ['Světelný výtěžek','Počet světelných fotonů, které krystal vyšle na 1 keV pohlcené energie.'],
+ ['Dosvit','Doba, za kterou záblesk světla v krystalu doznívá. Krátký dosvit zpřesní určení času a zkrátí koincidenční okno.'],
+ ['Délka útlumu','Tloušťka materiálu, ve které se počet nezasažených fotonů sníží na 1/e (≈ 37 %).'],
+ ['Fotonásobič (PMT)','Vakuová trubice, která přemění světlo na elektrony a řetězem dynod je zesílí zhruba milionkrát.'],
+ ['SiPM','Křemíková matice mikrobuněk, které reagují na jednotlivé fotony světla. Nepotřebuje vysoké napětí a je necitlivá na magnetické pole.'],
+ ['Blokový detektor','Matice krystalů čtená několika fotodetektory, poloha zasaženého krystalu se určí z poměru jejich signálů.']
+);
+
+CONTENT.spect[2]={
+ blocks:[
+ `<h3>Jak se záření gama měří</h3>
+  <p>Foton gama nelze v detektoru „vidět“ přímo. Měří se tak, že v materiálu předá energii elektronům a ty vytvoří měřitelný signál. Při energiích používaných ve SPECT jsou důležité dva procesy:</p>
+  <ul>
+  <li><b>Fotoefekt</b>: foton zanikne a celou svou energii předá jednomu elektronu. Pravděpodobnost je největší v materiálech s vysokým protonovým číslem, například v jodu (Z = 53).</li>
+  <li><b>Comptonův rozptyl</b>: foton předá elektronu jen část energie a pokračuje jiným směrem. Pokud pak z detektoru unikne, naměří se jen část původní energie.</li>
+  </ul>
+  <p>Velikost signálu je úměrná energii, kterou foton v detektoru zanechal. Detektor tedy měří nejen <b>polohu</b> a <b>počet</b> fotonů, ale i jejich <b>energii</b>. Podle ní se pak vybírají fotony s očekávanou energií (téma Lokalizace zdroje).</p>
+  <p>Energii lze na elektrický signál převést dvěma způsoby:</p>
+  <ol>
+  <li><b>Nepřímá konverze</b> (scintilační detektor): krystal energii přemění na záblesk světla a fotodetektor světlo na elektrický signál. Používá se v klasické gamakameře.</li>
+  <li><b>Přímá konverze</b>: polovodič přemění energii fotonu rovnou na elektrický náboj. Používá se v kamerách s detektory CZT.</li>
+  </ol>
+  <h3>Jak je gamakamera postavena</h3>
+  <p>Kamera se skládá z vrstev, kterými foton postupně prochází. Klikni na vrstvu a přečti si, co dělá.</p>`,
+ {w:'stack',k:'spect',title:'Řez gamakamerou',lead:'Foton přichází shora od pacienta. Vyber vrstvu.'},
+ `<h3>Scintilátor: krystal NaI(Tl)</h3>
+  <p><b>Scintilátor</b> je materiál, který po pohlcení záření krátce zasvítí. Počet světelných fotonů je úměrný pohlcené energii. Pro SPECT se používá <b>jodid sodný aktivovaný thaliem, NaI(Tl)</b>.</p>
+  <ul>
+  <li>Čistý NaI svítí při pokojové teplotě slabě. Malá příměs <b>thalia</b> (aktivátor) vytvoří v krystalu centra, přes která se energie vyzáří jako viditelné světlo (kolem 415 nm).</li>
+  <li><b>Světelný výtěžek ≈ 38 fotonů/keV</b> je z běžných scintilátorů nejvyšší. Foton 140 keV tak vytvoří zhruba 5 300 světelných fotonů.</li>
+  <li><b>Dosvit ≈ 230 ns.</b> Pro SPECT stačí, protože se nepoužívá koincidence.</li>
+  <li><b>Hustota 3,67 g/cm³</b> a jod (Z = 53) zajišťují, že při 140 keV foton většinou projde fotoefektem.</li>
+  <li>NaI pohlcuje vodu, krystal je proto <b>hermeticky zapouzdřený</b> v hliníku s okénkem.</li>
+  <li>Krystaly lze vyrobit ve velkých deskách (desítky cm) a jsou levné.</li>
+  </ul>
+  <h3>Proč tloušťka zhruba 9,5 mm</h3>
+  <p>Tloušťka je kompromis. Čím tlustší krystal, tím víc fotonů zastaví (vyšší citlivost). Ale světlo vzniká v různých hloubkách a v tlustém krystalu se rozptýlí do větší plochy, takže se poloha záblesku určuje hůř (horší rozlišení). Pro 140 keV vychází jako vhodné zhruba 9,5 mm. Pro vyšší energie se používají tlustší krystaly. Vyzkoušej, co to dělá:</p>`,
+ {w:'stop',k:'spect',title:'Kolik fotonů krystal zastaví',lead:'Posuň tloušťku krystalu. Čára ukazuje podíl fotonů, které v krystalu interagují.'},
+ `<p>Z grafu je vidět, že tenký krystal zastaví fotony 140 keV dobře, ale pro 511 keV (PET) by byl málo účinný. Proto má PET jiné krystaly (modul PET).</p>
+  <h3>Fotonásobič: převod světla na elektrický signál</h3>
+  <p>Záblesk světla je velmi slabý: z asi 5 300 světelných fotonů se po ztrátách na krystalu a světlovodu a po převodu na elektrony zbývá řádově <b>stovky elektronů</b>. To je příliš málo na zpracování v elektronice, signál se proto musí zesílit. Používá se <b>fotonásobič</b> (photomultiplier tube, PMT):</p>
+  <ol>
+  <li><b>Fotokatoda</b>: světelný foton z ní vyrazí elektron (fotoefekt). Kvantová účinnost je řádově 25 %, tedy zhruba každý čtvrtý foton vytvoří elektron.</li>
+  <li><b>Dynody</b> (kolem 10 stupňů): elektrony jsou elektrickým polem urychleny na první dynodu. Každý dopadající elektron z ní vyrazí několik (zhruba 3–5) sekundárních elektronů. Ty jsou urychleny na další dynodu a tak dále.</li>
+  <li><b>Anoda</b>: sbírá lavinu elektronů. Výstup je krátký impuls náboje úměrný počtu fotoelektronů, tedy energii fotonu.</li>
+  </ol>
+  <p>Celkové zesílení je δⁿ (δ je násobení na jedné dynodě, n počet dynod), řádově <b>10⁶</b>. Vyzkoušej, jak ho ovlivní napětí a počet dynod:</p>`,
+ {w:'pmt',k:'spect',title:'Řetěz fotonásobiče',lead:'Vyber radionuklid, nastav počet dynod a napětí mezi nimi. Čárami je vidět, kolik elektronů je po každém stupni (logaritmická škála).'},
+ `<div class="key"><p><b>Proč fotonásobič.</b> Signál z krystalu je slabý a rychlý. Fotonásobič ho zesílí milionkrát při velmi nízkém šumu, odpoví za zlomky mikrosekundy a lze ho vyrobit s velkou plochou. Zesílení je navíc úměrné vstupnímu signálu, takže se energie nezkreslí. Nevýhody: velký objem, křehkost, vysoké napětí (stovky až ≈ 1000 V) a citlivost na magnetické pole.</p></div>
+  <p>Počet fotoelektronů určuje i <b>energetické rozlišení</b>. Počet je statisticky rozdělený a jeho relativní kolísání je úměrné 1/√N. Čím víc fotoelektronů, tím přesnější je měření energie. V grafu výše je vidět statistický limit. Skutečné rozlišení gamakamery je horší (ztráty světla, nerovnoměrnosti, šum elektroniky) a pro 140 keV bývá zhruba 9–10 %.</p>
+  <h3>Jak se určí poloha: Angerova logika</h3>
+  <p>Jeden velký krystal je čten polem několika desítek fotonásobičů (37 až 91 podle velikosti kamery). Světlo z jednoho záblesku se rozdělí mezi sousední fotonásobiče: nejblíž ležící dostane nejvíc, vzdálenější míň. <b>Poloha záblesku se spočítá jako vážený průměr poloh fotonásobičů</b> (váha je jejich signál). <b>Součet signálů je úměrný energii</b>, podle ní se rozhodne, zda událost zařadit do obrazu.</p>
+  <p>Zkus to na modelu: klikni na krystal a sleduj signály, vypočtenou polohu a chybu. Poté vyšli 100 událostí a změň počet fotoelektronů.</p>`,
+ {w:'locate',k:'spect',title:'Angerova logika',lead:'Výřez ze 3 × 3 fotonásobičů. Klikni na krystal a zkus polohu u okraje: odhad se tam stahuje ke středu, což se ve skutečné kameře koriguje kalibračními mapami.'},
+ `<p>Tato metoda je základ klasické gamakamery. Vnitřní (intrinsické) prostorové rozlišení kamery je několik milimetrů (zhruba 3–4 mm). Výsledné rozlišení SPECT je horší (8–12 mm), protože ho určuje hlavně kolimátor.</p>
+  <h3>Varianta s přímou konverzí: detektory CZT</h3>
+  <p>Scintilační řetěz má několik kroků a v každém se část signálu ztratí: energie → světlo → fotoelektrony → zesílení. Počet nosičů, na kterých je signál založen, je malý (stovky fotoelektronů), což omezuje energetické rozlišení.</p>
+  <p><b>Přímá konverze</b> vynechá světlo. Polovodič <b>CZT (kadmium-zinek-tellur, CdZnTe)</b> je mezi dvěma elektrodami s napětím (stovky V). Foton gama v něm vytvoří <b>páry elektron–díra</b> (jeden pár stojí zhruba 4,6 eV energie, tedy z fotonu 140 keV vzniká kolem 30 000 párů). Elektrické pole je rozdělí a náboj putuje k elektrodám, kde vytvoří přímo elektrický impuls. Elektrody jsou rozdělené na <b>pixely</b> (řádově jednotky mm), poloha zásahu je dána pixelem.</p>`,
+ {w:'direct',title:'Scintilátor a polovodič: počet nosičů signálu',lead:'Posuň energii fotonu. Porovnej, kolik nosičů signálu vznikne v obou typech detektorů a jaký je statistický limit rozlišení.'},
+ `<p>Výhody CZT: <b>lepší energetické rozlišení</b> (zhruba 5–6 % při 140 keV proti 9–10 % u NaI(Tl)), což umožňuje lépe odlišit nerozptýlené fotony od rozptýlených (téma Lokalizace zdroje), <b>kompaktnější</b> kamery (bez světlovodu a fotonásobičů) a pixelová struktura s přesně danou polohou. Kamery s CZT dosahují vyšší citlivosti při stejném rozlišení, proto se používají například u dedikovaných kardiologických kamer (D-SPECT, Discovery NM 530c).</p>
+  <p>Nevýhody: <b>vysoká cena</b> a obtížná výroba velkých bezvadných krystalů, proto jsou detektory skládané z malých modulů. Díry se v CZT pohybují pomalu a částečně se zachycují na vadách, takže část náboje se nesbere a ve spektru vzniká nízkoenergetický „ocas“ (hole tailing), který se koriguje elektronikou. Vlastnosti zesílení a šumu závisejí na teplotě.</p>
+  <div class="tbl"><table>
+  <thead><tr><th></th><th>NaI(Tl) + fotonásobiče</th><th>CZT (přímá konverze)</th></tr></thead>
+  <tbody>
+  <tr><td>Signál</td><td>světlo → fotoelektrony</td><td>páry elektron–díra</td></tr>
+  <tr><td>Energetické rozlišení při 140 keV</td><td>≈ 9–10 %</td><td>≈ 5–6 %</td></tr>
+  <tr><td>Určení polohy</td><td>výpočet z poměru signálů fotonásobičů</td><td>pixel</td></tr>
+  <tr><td>Velikost detektoru</td><td>světlovod a trubice, tlustší kamera</td><td>kompaktní moduly</td></tr>
+  <tr><td>Cena a výroba</td><td>levné, velké desky</td><td>drahé, malé moduly</td></tr>
+  <tr><td>Typické použití</td><td>univerzální gamakamery</td><td>dedikované (např. kardiologické) kamery</td></tr>
+  </tbody></table></div>`,
+ {gloss:1}
+ ],
+ src:`Tabulka scintilátorů (NaI(Tl): hustota 3,67 g/cm³, světelný výtěžek 38, dosvit 230 ns): <a href="https://socr.umich.edu/BPAD1/BPAD1_notes/BPAD1_Chap06_NuclearMedicine_PET_SPECT.html" target="_blank" rel="noopener">SOCR, učební poznámky k PET a SPECT, Table 6</a>. Hodnoty zesílení a kvantové účinnosti fotonásobiče, tloušťka krystalu 9,5 mm, účinnost 140 keV, energetické rozlišení 9–10 % a 5–6 % a parametry CZT (≈ 4,6 eV na pár) jsou obecně známé orientační údaje, které je třeba doložit v učebnici (např. Cherry, Sorenson, Phelps: Physics in Nuclear Medicine; Knoll: Radiation Detection and Measurement). Délka útlumu NaI(Tl) pro 140 keV (≈ 3,9 mm v grafu) je odvozena z typické účinnosti ≈ 90 % pro 9,5 mm a bude upřesněna z tabulek NIST XCOM.`,
+ quiz:[
+  {q:'Čím se u klasické gamakamery převede energie fotonu gama na elektrický signál?',o:['Přímo polovodičem, který vytvoří elektrický proud','Scintilačním krystalem (záblesk světla) a fotonásobičem (světlo na elektrony a jejich zesílení)','Olověným kolimátorem','Magnetickým polem'],a:1,w:'Je to nepřímá konverze: foton → světlo v krystalu NaI(Tl) → elektrony na fotokatodě → zesílení v dynodách. Kolimátor jen vybírá směr.'},
+  {q:'Proč se do krystalu NaI přidává thalium?',o:['Aby krystal byl hustší','Aby krystal byl radioaktivní','Aby se energie vyzářila jako viditelné světlo a krystal dobře svítil','Aby se zvýšila tloušťka'],a:2,w:'Příměs thalia (aktivátor) vytvoří centra, přes která se energie vyzáří jako viditelné světlo. Čistý NaI svítí při pokojové teplotě slabě.'},
+  {q:'Proč se používá fotonásobič a ne jen jednoduchý fotodetektor bez zesílení?',o:['Signál ze scintilačního záblesku je jen stovky elektronů, což je pro elektroniku málo, a fotonásobič ho zesílí zhruba milionkrát při nízkém šumu','Fotonásobič vytváří světlo, které krystal nevyzáří','Fotonásobič zvyšuje energii fotonu','Bez fotonásobiče by nebyl potřeba krystal'],a:0,w:'Bez zesílení by byl náboj řádově 10⁻¹⁶ C, pod úrovní šumu elektroniky. Dynody ho zvýší na desítky až stovky pC.'},
+  {q:'Proč mají gamakamery krystaly jen zhruba 9,5 mm tlusté, a ne mnohem tlustší?',o:['Tlustší krystal zastaví méně fotonů','Tlustší krystal rozptyluje světlo do větší plochy a zhoršuje určení polohy, takže 9,5 mm je kompromis citlivosti a rozlišení','Tlustší krystal nelze vyrobit','Tlustší krystal pohlcuje více záření β'],a:1,w:'Tlustší krystal zastaví víc fotonů, ale světlo z hlubších záblesků se rozptýlí na větší plochu a poloha je méně přesná.'},
+  {q:'Jak se v Angerově logice určí poloha záblesku?',o:['Poloha je dána jen nejsilnějším fotonásobičem','Z doby letu fotonu','Jako vážený průměr poloh fotonásobičů, kde váhou je jejich signál; součet signálů udává energii','Z energie fotonu'],a:2,w:'Světlo se rozdělí mezi sousední fotonásobiče a z poměru jejich signálů se spočítá poloha. Součet signálů je úměrný energii.'},
+  {q:'V čem je hlavní princip přímé konverze u CZT?',o:['Foton se nejdřív změní na světlo, to se zesílí a převede na proud','Foton v polovodiči vytvoří páry elektron–díra, které elektrické pole odvede k elektrodám jako elektrický impuls','Kolimátor se nahradí magnetem','Detektor pracuje bez fotonů'],a:1,w:'Vynechá se světelný mezistupeň. Foton 140 keV vytvoří řádově desítky tisíc nosičů náboje, proto má CZT lepší energetické rozlišení.'},
+  {q:'Proč mají CZT kamery lepší energetické rozlišení než NaI(Tl) s fotonásobiči?',o:['Mají silnější kolimátor','Signál je tvořen mnohem větším počtem nosičů (desítky tisíc párů místo stovek fotoelektronů) a řetěz má méně ztrátových kroků','Mají větší krystaly','Pracují při vyšší teplotě'],a:1,w:'Statistické kolísání je úměrné 1/√N. Více nosičů znamená menší relativní kolísání. Skutečné rozlišení CZT je ale omezeno sběrem náboje (např. zachytáváním děr).'}
+ ]
+};
+
+CONTENT.pet[2]={
+ blocks:[
+ `<h3>Co musí umět detektor pro 511 keV</h3>
+  <p>Princip je stejný jako ve SPECT: <b>scintilační krystal</b> převede energii fotonu na světlo a <b>fotodetektor</b> světlo na elektrický signál. Požadavky jsou ale přísnější, protože fotony mají 511 keV (pronikavější než 140 keV) a hledá se <b>dvojice</b> fotonů zachycená současně. Krystal musí:</p>
+  <ul>
+  <li><b>Zastavit foton 511 keV.</b> Potřebuje vysokou hustotu a vysoké protonové číslo (aby převládal fotoefekt) a dostatečnou tloušťku.</li>
+  <li><b>Mít krátký dosvit.</b> Dvojice se pozná podle shody v čase v řádu nanosekund. Čím rychleji krystal světlo vyzáří, tím přesněji se určí čas příletu a tím užší může být koincidenční okno. Krátký dosvit také brání překrývání signálů při vysoké četnosti.</li>
+  <li><b>Vyzářit dost světla.</b> Čím víc světelných fotonů, tím přesnější je určení energie, polohy i času.</li>
+  <li>Být mechanicky odolný, nehygroskopický a dát se opracovat na úzké hranoly.</li>
+  </ul>
+  <div class="tbl"><table>
+  <thead><tr><th>Krystal</th><th>Hustota [g/cm³]</th><th>Délka útlumu 511 keV [mm]</th><th>Světelný výtěžek [fot./keV]</th><th>Dosvit [ns]</th><th>Energ. rozlišení [%]</th></tr></thead>
+  <tbody>
+  <tr><td>NaI(Tl)</td><td>3,67</td><td>29,1</td><td>38</td><td>230</td><td>7,8</td></tr>
+  <tr><td>BGO</td><td>7,13</td><td>10,4</td><td>9</td><td>300</td><td>12,0</td></tr>
+  <tr><td>LSO / LYSO</td><td>7,40</td><td>11,4</td><td>30</td><td>40</td><td>10,0</td></tr>
+  <tr><td>GSO</td><td>6,71</td><td>14,1</td><td>8</td><td>60</td><td>9,0</td></tr>
+  </tbody></table></div>
+  <p>Hodnoty jsou ze zdroje uvedeného dole. Energetické rozlišení v klinických přístrojích se od těchto laboratorních hodnot liší.</p>
+  <ul>
+  <li><b>LSO / LYSO</b> (oxyortokřemičitan lutecia, případně s yttriem, aktivovaný ceriem) je dnes v klinických PET nejpoužívanější. Má vysokou hustotu, velký světelný výtěžek a hlavně <b>krátký dosvit 40 ns</b>, který dovolí přesné časování. Obsahuje přirozený izotop Lu-176, který způsobuje slabé vlastní pozadí.</li>
+  <li><b>BGO</b> (germanát bismutitý) má nejkratší délku útlumu (nejlépe zastavuje), ale malý světelný výtěžek a pomalejší dosvit, proto je horší v časování.</li>
+  <li><b>NaI(Tl)</b> má největší světelný výtěžek, ale foton 511 keV zastaví výrazně hůř a je pomalý.</li>
+  </ul>
+  <p>Podíl fotonů, které v krystalu o dané tloušťce interagují, je <b>1 − e<sup>−t/L</sup></b> (L je délka útlumu). Vyzkoušej:</p>`,
+ {w:'stop',k:'pet',title:'Kolik fotonů 511 keV krystal zastaví',lead:'Vyber materiál a posuň tloušťku. Při koincidenci musí interagovat oba fotony, účinnost páru je tedy druhou mocninou.'},
+ `<p>Typický krystal klinického PET je tenký hranol o průřezu zhruba 4 × 4 mm a <b>délce kolem 20 mm</b>. Průřez určuje prostorové rozlišení, délka zastavení fotonu. U LYSO 20 mm zastaví zhruba 80 % fotonů, pro dvojici platí zhruba 2/3.</p>
+  <h3>Jak je detektor postaven: blokový detektor</h3>
+  <p>PET má kolem pacienta <b>desítky tisíc</b> krystalů o průřezu pár milimetrů. Každý krystal by neměl svůj fotodetektor, bylo by to nákladné a nevešlo by se to. Proto se krystaly spojují do <b>bloků</b> (například 8 × 8 krystalů) čtených jen <b>čtyřmi fotodetektory</b>. Klikni na vrstvu:</p>`,
+ {w:'stack',k:'pet',title:'Řez blokem a prstenec detektorů',lead:'Vyber vrstvu bloku.'},
+ `<p>Jak se pozná, <b>který krystal</b> v bloku foton zasáhl? Světlo z krystalu se ve světlovodu mezi čtyři fotodetektory rozdělí podle polohy: krystal v rohu rozsvítí jeden detektor hodně a ostatní málo. Poloha vychází z poměru signálů, podobně jako u Angerovy logiky. Výsledek se při kalibraci přiřadí konkrétním krystalům pomocí <b>mapy</b> (rozptyl „flood“ histogramu). Zkus to:</p>`,
+ {w:'locate',k:'pet',title:'Blok 8 × 8 krystalů čtený čtyřmi fotodetektory',lead:'Klikni na krystal. Šedé body jsou kalibrační mapa (kde se každý krystal při dobrém signálu zobrazí). Pak vyšli 100 událostí a sleduj, kolik se jich zařadí do správného krystalu při různém počtu fotoelektronů.'},
+ `<p>Při malém počtu fotoelektronů se body mapy překrývají a část událostí se přiřadí sousednímu krystalu. To je důvod, proč je velký světelný výtěžek (LYSO) výhodný a proč se světlovod i fotodetektory navrhují tak, aby se zachytilo co nejvíc světla.</p>
+  <h3>Fotodetektory: fotonásobič a SiPM</h3>
+  <p>Řetěz fotonásobiče je stejný jako ve SPECT (fotokatoda, dynody, anoda). Pro 511 keV se hodnotí hlavně <b>rychlost a množství světla</b>. Vyzkoušej, kolik fotoelektronů vznikne v jednotlivých krystalech:</p>`,
+ {w:'pmt',k:'pet',title:'Řetěz fotonásobiče',lead:'Vyber krystal a nastav počet dynod a napětí. Porovnej počet fotoelektronů a statistický limit rozlišení.'},
+ `<p>Novější přístroje používají místo fotonásobičů <b>SiPM</b> (křemíkový fotonásobič). Je to křemíková matice tisíců mikrobuněk, z nichž každá při dopadu světelného fotonu krátce „vystřelí“ (lavinový průraz). Součet výstřelů je úměrný počtu fotonů.</p>
+  <div class="tbl"><table>
+  <thead><tr><th></th><th>Fotonásobič (PMT)</th><th>SiPM</th></tr></thead>
+  <tbody>
+  <tr><td>Princip</td><td>vakuová trubice, fotokatoda a dynody</td><td>křemíková matice mikrobuněk</td></tr>
+  <tr><td>Napětí</td><td>stovky až kolem 1000 V</td><td>desítky V</td></tr>
+  <tr><td>Rozměr</td><td>velký objem, omezuje prostorové rozlišení</td><td>kompaktní, malé mezery mezi pixely</td></tr>
+  <tr><td>Magnetické pole</td><td>citlivý</td><td>necitlivý, proto vhodný pro PET/MR</td></tr>
+  <tr><td>Časování</td><td>větší rozptyl doby průletu elektronů</td><td>umožňuje lepší TOF u moderních systémů</td></tr>
+  <tr><td>Nevýhody</td><td>objem, křehkost, vysoké napětí</td><td>závislost zesílení na teplotě, temné pulzy</td></tr>
+  </tbody></table></div>
+  <div class="key"><p><b>Proč se přechází na SiPM.</b> Je menší, a krystaly lze proto číst po jednom, což zlepší určení polohy. Dovoluje přesnější časování, a tím TOF (téma Lokalizace zdroje). A funguje v magnetickém poli, takže umožní PET/MR. Za to je třeba hlídat teplotu a temné pulzy.</p></div>
+  <h3>Existuje varianta s přímou konverzí?</h3>
+  <p>Ano, polovodiče (CZT, CdTe) převádějí foton rovnou na náboj, bez světelného kroku, a mají dobré energetické rozlišení a polohu. Pro celotělový klinický PET se ale nepoužívají. Foton 511 keV je třeba zastavit v dostatečně tlustém detektoru a polovodič má nižší hustotu a protonové číslo než LYSO. Sběr náboje je také pomalejší než záblesk scintilátoru, a PET přitom potřebuje časování v řádu stovek pikosekund. Polovodičové PET detektory existují hlavně jako vývojové a specializované systémy.</p>`,
+ {gloss:1}
+ ],
+ src:`Tabulka scintilátorů (hustota, délka útlumu pro 511 keV, světelný výtěžek, dosvit, energetické rozlišení): <a href="https://socr.umich.edu/BPAD1/BPAD1_notes/BPAD1_Chap06_NuclearMedicine_PET_SPECT.html" target="_blank" rel="noopener">SOCR, učební poznámky k PET a SPECT, Table 6</a>. Srovnání SiPM a fotonásobičů (velikost, necitlivost na magnetické pole, časování, teplotní závislost): <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9308856" target="_blank" rel="noopener">Silicon photomultiplier signal readout and multiplexing techniques for PET: a review</a>. Blokový detektor se čtyřmi fotonásobiči a kódovaným světlovodem: <a href="https://www.osti.gov/biblio/7031539" target="_blank" rel="noopener">A new multi-crystal two dimensional detector block for PET (OSTI)</a>. Rozměry krystalů, zesílení a kvantová účinnost fotonásobiče a poznámky o polovodičových PET detektorech jsou obecně známé orientační údaje, které je třeba doložit v učebnici.`,
+ quiz:[
+  {q:'Proč je v PET LYSO dnes častější než BGO?',o:['LYSO má vyšší hustotu než BGO','LYSO má kratší dosvit (≈ 40 ns) a větší světelný výtěžek, což umožňuje přesnější časování a užší koincidenční okno','LYSO zastaví 511 keV mnohem lépe než BGO','LYSO neobsahuje žádné radioaktivní izotopy'],a:1,w:'BGO zastaví foton o něco lépe, ale je pomalejší a vyzáří méně světla. LYSO má dosvit 40 ns proti 300 ns a světelný výtěžek ≈ 30 proti ≈ 9 fotonů/keV.'},
+  {q:'Proč je u PET důležitý krátký dosvit krystalu?',o:['Aby krystal zůstal chladnější','Aby se dvojice fotonů poznala podle přesné shody v čase a bylo možné zkrátit koincidenční okno (TOF)','Aby měl krystal větší hustotu','Aby se dalo použít méně krystalů'],a:1,w:'Dvojice se pozná podle současnosti zásahu. Rychlejší krystal dává přesnější čas a menší pravděpodobnost náhodných koincidencí.'},
+  {q:'Jak se mění podíl fotonů zastavených v krystalu s tloušťkou?',o:['Roste lineárně až do 100 %','Roste exponenciálně pomalu k 100 %: 1 − e^(−t/L)','Je stejný pro každou tloušťku','Klesá s tloušťkou'],a:1,w:'Fotony se zeslabují exponenciálně. Každá další vrstva zastaví jen část toho, co zbylo.'},
+  {q:'Proč se krystaly v PET spojují do bloků čtených čtyřmi fotodetektory?',o:['Aby krystal dostal víc záření','Aby nebylo potřeba tisíce fotodetektorů (jeden na krystal) a poloha se určila z poměru signálů čtyř','Aby se dosvit prodloužil','Aby se zvýšila energie fotonů'],a:1,w:'Jeden fotodetektor na každý úzký krystal by byl drahý a nevešel by se. V bloku se světlo mezi čtyři detektory dělí a z poměru signálů se určí zasažený krystal.'},
+  {q:'Proč se při malém počtu fotoelektronů zhorší určení zasaženého krystalu v bloku?',o:['Signály čtyř fotodetektorů jsou šumem natolik rozptýlené, že se oblasti sousedních krystalů překrývají','Krystaly se zahřívají','Fotony se odrážejí od krystalů','Blok pak odmítne měřit'],a:0,w:'Statistický šum polohy je úměrný 1/√N. S menším počtem fotoelektronů se body mapy překrývají a část událostí se přiřadí sousednímu krystalu.'},
+  {q:'Co je z hlediska PET hlavní výhodou SiPM oproti fotonásobiči?',o:['SiPM vyžaduje vyšší napětí','SiPM je kompaktní, necitlivý na magnetické pole (PET/MR) a umožňuje přesnější časování','SiPM nepotřebuje krystal','SiPM není závislý na teplotě'],a:1,w:'SiPM je malý, funguje v magnetickém poli a podporuje lepší TOF. Nevýhodou je teplotní závislost zesílení a temné pulzy.'},
+  {q:'Proč se přímá konverze (CZT) nepoužívá v celotělových klinických PET?',o:['Neumí měřit energii','Nelze vyrobit žádný polovodič','Pro 511 keV je třeba hustý a rychlý detektor; polovodič zastaví foton hůř než LYSO a sběr náboje je pomalejší než scintilační záblesk','Polovodič nereaguje na záření gama'],a:2,w:'PET potřebuje zastavit pronikavé fotony 511 keV a přesně určit čas příletu. LYSO s fotodetektorem to zvládá lépe.'}
+ ]
+};
+
+GLOSS.spect.push(
+ ['Projekce','Obraz jednoho směru pohledu: součet signálu podél směru, ve kterém kolimátor propouští záření.'],
+ ['Septum','Olověná přepážka mezi otvory kolimátoru.'],
+ ['Septální penetrace','Foton projde přepážkou kolimátoru místo otvorem a zhorší obraz. Roste s energií fotonu.'],
+ ['Fotopík','Maximum ve spektru, které odpovídá fotonům, jež odevzdaly v detektoru celou energii.'],
+ ['Energetické okno','Rozmezí energií kolem fotopíku, jehož události se zapíší do obrazu. Ostatní se vyřadí.'],
+ ['Intrinsické rozlišení','Rozlišení samotného detektoru bez kolimátoru.']
+);
+GLOSS.pet.push(
+ ['LOR','Přímka mezi dvěma detektory, které zachytily koincidenci.'],
+ ['Pravá koincidence (T)','Oba fotony z jedné anihilace zachyceny bez rozptylu. Užitečný signál.'],
+ ['Rozptýlená koincidence (S)','Pár z jedné anihilace, z něhož se aspoň jeden foton rozptýlil, takže LOR neprochází zdrojem.'],
+ ['Náhodná koincidence (R)','Fotony ze dvou různých anihilací zachycené v jednom koincidenčním okně.'],
+ ['Koincidenční okno','Doba (jednotky ns), během které se dva zásahy považují za současné.'],
+ ['NEC','Noise equivalent count rate: četnost ideálního měření bez rozptylu a náhodných koincidencí, které by mělo stejný poměr signál/šum, NEC = T²/(T + S + 2R).'],
+ ['TOF (time of flight)','Měření rozdílu časů příletu obou fotonů, z něhož se odhadne poloha anihilace podél LOR.'],
+ ['Nekolinearita','Odchylka úhlu mezi fotony od 180° (≈ ± 0,25°).']
+);
+
+CONTENT.spect[3]={
+ blocks:[
+ `<h3>Co je třeba zjistit</h3>
+  <p>Detektor změří jen to, <b>kde</b> foton dopadl a <b>jakou energii</b> měl. Zdroj ale může ležet kdekoli na přímce, ze které foton přiletěl, a foton se cestou mohl v těle rozptýlit a letět jiným směrem než původně. Aby šlo určit, odkud signál pochází, musí přístroj vyřešit tři věci:</p>
+  <ol>
+  <li><b>Odkud foton letěl (směr).</b> Zajišťuje <b>kolimátor</b>.</li>
+  <li><b>Kde dopadl na detektor (poloha).</b> Zajišťují krystal, fotonásobiče a Angerova logika (téma Detekce).</li>
+  <li><b>Zda letěl přímo ze zdroje.</b> Foton rozptýlený v těle ukazuje špatný směr. Pozná se podle <b>energie</b> a vyřadí se <b>energetickým oknem</b>.</li>
+  </ol>
+  <p>Hloubka zdroje se z jednoho pohledu určit nedá. Získá se až z pohledů pod mnoha úhly (tomografie, viz Úvod a téma Softwarový dopočet).</p>
+  <h3>Kolimátor</h3>
+  <p><b>Kolimátor</b> je deska z olova (nebo wolframu) se stovkami až tisíci úzkých otvorů, kterou kryje celý krystal. Foton, který letí ve směru otvoru, projde a dopadne na krystal. Foton letící šikmo narazí na přepážku (<b>septum</b>) a je pohlcen. Každý bod krystalu proto „vidí“ jen úzký sloupec těla před sebou a obraz je <b>projekcí</b> rozložení látky na rovinu.</p>
+  <div class="tbl"><table>
+  <thead><tr><th>Typ</th><th>Princip</th><th>Použití</th></tr></thead>
+  <tbody>
+  <tr><td>Paralelní otvory</td><td>otvory rovnoběžné, obraz ve skutečné velikosti</td><td>nejběžnější, většina vyšetření</td></tr>
+  <tr><td>Pinhole</td><td>jeden malý otvor, obraz zvětšený a převrácený</td><td>malé orgány (např. štítná žláza), malá zvířata</td></tr>
+  <tr><td>Konvergentní (fan-beam, cone-beam)</td><td>otvory míří do společného ohniska, obraz zvětšený</td><td>mozek, srdce: vyšší citlivost při stejném rozlišení, ale menší zorné pole</td></tr>
+  <tr><td>Divergentní</td><td>otvory se rozbíhají, obraz zmenšený</td><td>velký orgán na malém detektoru, horší rozlišení</td></tr>
+  </tbody></table></div>
+  <h3>Rozlišení a citlivost kolimátoru</h3>
+  <p>Kolimátor je kompromis. Čím <b>užší a delší</b> otvory, tím ostřejší obraz, ale tím víc fotonů přepážky zachytí. Pro paralelní otvory platí (d je průměr otvoru, L jeho délka, t tloušťka septa, b vzdálenost zdroje od kolimátoru, K ≈ 0,26 pro šestiúhelníkové otvory):</p>
+  <ul>
+  <li>rozlišení: <b>R<sub>koll</sub> ≈ d · (L + b) / L</b></li>
+  <li>citlivost (podíl fotonů, které projdou): <b>g ≈ (K · d/L · d/(d+t))²</b></li>
+  </ul>
+  <p>Výsledné rozlišení soustavy je R<sub>sys</sub> = √(R<sub>koll</sub>² + R<sub>int</sub>²), kde R<sub>int</sub> je vnitřní rozlišení detektoru. Z prvního vzorce plyne důležitý závěr: <b>rozlišení se zhoršuje lineárně se vzdáleností zdroje od kolimátoru</b>, proto se kamera přibližuje co nejblíž k pacientovi. Zkus to:</p>`,
+ {w:'colres',title:'Kolimátor: rozlišení podle vzdálenosti',lead:'Vyber typ kolimátoru a měň vzdálenost zdroje. Všimni si, že větší otvory dají mnohem vyšší citlivost, ale horší rozlišení.'},
+ `<div class="key"><p><b>Kolimátor pro každou energii.</b> Přepážky musí být dost silné, aby jimi foton neprošel z jednoho otvoru do druhého (<b>septální penetrace</b>). Pro záření kolem 140 keV (Tc-99m) stačí tenká septa (zhruba 0,2 mm), pro vyšší energie (např. I-131, 364 keV) jsou potřeba tlustší, a ta při stejném rozlišení znamenají nižší citlivost. Proto se kolimátory dělí na nízkoenergetické, středně a vysokoenergetické.</p></div>
+  <h3>Proč se foton musí rozpoznat podle energie: Comptonův rozptyl</h3>
+  <p>Část fotonů se v těle před opuštěním rozptýlí (Comptonův rozptyl) a změní směr. Takový foton přichází z jiného místa, než kde je zdroj, a kdyby se započítal, rozmazal by obraz a snížil kontrast. Při rozptylu ale foton <b>ztratí část energie</b>, a to tím víc, čím větší je úhel rozptylu θ:</p>
+  <p><b>E′ = E / (1 + (E / 511 keV) · (1 − cos θ))</b></p>
+  <p>Detektor energii měří, takže může rozptýlené fotony vyřadit: do obrazu se zapíše jen událost, jejíž energie leží v <b>energetickém okně</b> kolem fotopíku. Pro Tc-99m se typicky používá okno 140 keV ± 10 %. Vyzkoušej, jaký rozptyl okno ještě propustí:</p>`,
+ {w:'compton',k:'spect',title:'Energie po rozptylu a energetické okno',lead:'Posuň úhel rozptylu. Pokud energie po rozptylu leží nad dolní hranou okna, foton se započítá jako nerozptýlený.'},
+ `<p>Z grafu je vidět, že <b>rozptyl pod malým úhlem okno neodfiltruje</b>: ztráta energie je menší než šířka okna. Zúžením okna se propustí méně rozptýlených fotonů, ale okno nelze zúžit libovolně, protože fotopík má kvůli omezenému energetickému rozlišení konečnou šířku.</p>
+  <h3>Spektrum a energetické okno</h3>
+  <p>Rozložení naměřených energií se nazývá <b>spektrum</b>. Má tyto části:</p>
+  <ul>
+  <li><b>Fotopík</b>: fotony, které v krystalu odevzdaly celou energii (140 keV). Jeho šířka je dána energetickým rozlišením detektoru (statistika světla, téma Detekce).</li>
+  <li><b>Rozptýlené fotony</b>: fotony, které se v těle rozptýlily. Mají nižší energii, ale ty s malým úhlem rozptylu leží těsně pod fotopíkem a částečně do něj zasahují.</li>
+  </ul>
+  <p>Energetické rozlišení se tu přímo projeví. Užší fotopík (CZT) dovolí užší okno a vyřadí víc rozptýlených fotonů při stejném zachycení primárních. Zkus to:</p>`,
+ {w:'spectrum',k:'spect',title:'Spektrum, fotopík a okno',lead:'Porovnej NaI(Tl) a CZT. Zúžením okna ubývá rozptýlených fotonů, ale u širokého fotopíku i primárních.'},
+ `<h3>Z čeho se skládá přístroj a co dělá</h3>
+  <ul>
+  <li><b>Kolimátor</b> určí směr. Vyměňuje se podle energie nuklidu a úlohy (rozlišení nebo citlivost).</li>
+  <li><b>Krystal, světlovod, fotonásobiče a Angerova logika</b> určí polohu dopadu a energii.</li>
+  <li><b>Analyzátor amplitud</b> porovná energii události s nastaveným oknem a vyřadí rozptýlené fotony.</li>
+  <li><b>Korekční mapy</b> (linearity, energie, uniformity) vyrovnají nerovnoměrnosti kamery.</li>
+  <li><b>Stínění</b> krystalu zezadu a z boků zabraňuje, aby se zaznamenávalo záření z okolí.</li>
+  <li><b>Gantry</b> otáčí detektory kolem pacienta a drží je blízko jeho těla, aby bylo rozlišení co nejlepší.</li>
+  </ul>
+  <h3>Jak lokalizaci zlepšit</h3>
+  <ul>
+  <li>Kameru držet <b>co nejblíž</b> pacientovi (tvarová orbita).</li>
+  <li>Zvolit <b>kolimátor</b> odpovídající energii a úloze.</li>
+  <li>Použít detektor s <b>dobrým energetickým rozlišením</b> (užší okno, méně rozptylu).</li>
+  <li>Nasnímat <b>dost událostí</b> (déle nebo s větší aktivitou), aby byl menší statistický šum.</li>
+  <li>Více detektorů zvyšuje celkovou citlivost bez ztráty rozlišení.</li>
+  <li>Korekce rozptylu a útlumu při rekonstrukci (téma Softwarový dopočet).</li>
+  </ul>`,
+ {gloss:1}
+ ],
+ src:`Vzorce pro rozlišení a citlivost kolimátoru, typické rozměry (L = 24 mm, t = 0,2 mm, průměr otvoru 1,11 / 1,40 / 2,54 mm), energetické okno 140 keV ± 10 % a mezní úhly rozptylu pro okno ±15 % (≈ 69° při 140 keV): <a href="https://socr.umich.edu/BPAD1/BPAD1_notes/BPAD1_Chap06_NuclearMedicine_PET_SPECT.html" target="_blank" rel="noopener">SOCR, učební poznámky k PET a SPECT, kap. 6.4–6.5</a>. Rozdělení kolimátorů podle tvaru a energie a vnitřní rozlišení 3,5 mm jsou obecně známé orientační údaje, které je třeba doložit v učebnici.`,
+ quiz:[
+  {q:'Která součást gamakamery určuje směr, ze kterého foton přiletěl?',o:['Fotonásobič','Kolimátor','Analyzátor amplitud','Světlovod'],a:1,w:'Kolimátor propustí jen fotony letící ve směru otvorů. Poloha dopadu a energie se určují jinde.'},
+  {q:'Co se stane, když zvětšíme průměr otvorů kolimátoru?',o:['Zvýší se citlivost, ale zhorší rozlišení','Zlepší se rozlišení i citlivost','Zhorší se citlivost i rozlišení','Změní se jen energie fotonů'],a:0,w:'Víc fotonů projde (vyšší g), ale každý bod detektoru vidí širší sloupec těla, takže R_koll = d(L+b)/L roste.'},
+  {q:'Proč se při SPECT kamera přibližuje co nejblíž k pacientovi?',o:['Aby foton měl vyšší energii','Rozlišení kolimátoru se zhoršuje lineárně se vzdáleností zdroje (R ≈ d(L+b)/L)','Aby se zvýšila hustota krystalu','Aby se zkrátil poločas'],a:1,w:'Zvětšení vzdálenosti b zhorší rozlišení kolimátoru úměrně (L+b). Vzdálený zdroj se vyobrazí rozmazaněji.'},
+  {q:'Podle čeho se odliší foton rozptýlený v těle od nerozptýleného?',o:['Podle barvy světla','Podle energie: rozptýlený má nižší energii','Podle směru letu kolimátorem','Podle poločasu'],a:1,w:'Při Comptonově rozptylu foton ztratí část energie, a ta se měří v detektoru. Nízkoenergetické události se energetickým oknem vyřadí.'},
+  {q:'Proč energetické okno neodstraní všechny rozptýlené fotony?',o:['Rozptýlené fotony mají vyšší energii','Foton rozptýlený pod malým úhlem ztratí málo energie a leží uvnitř okna, navíc je fotopík kvůli rozlišení detektoru široký','Okno se nedá nastavit','Rozptyl vzniká až v detektoru'],a:1,w:'Okno ±10 % propustí rozptyl do úhlu zhruba 54°. Takto rozptýlené fotony se od nerozptýlených nedají podle energie rozlišit.'},
+  {q:'Co přináší detektor CZT z hlediska potlačení rozptylu?',o:['Silnější kolimátor','Užší fotopík (lepší energetické rozlišení), takže lze použít užší okno bez ztráty primárních fotonů','Vyšší energii fotonů','Pomalejší dosvit'],a:1,w:'Při užším fotopíku vyřadí užší okno víc rozptýlených fotonů, a přitom zachová většinu primárních.'},
+  {q:'Proč se pro radionuklidy s vysokou energií používají kolimátory s tlustšími septy?',o:['Aby se zvýšila citlivost','Aby fotony neprošly přepážkami do sousedních otvorů (septální penetrace)','Aby se zvýšilo rozlišení krystalu','Aby kolimátor byl lehčí'],a:1,w:'Vysokoenergetické fotony pronikají olovem hlouběji. Tlustší septa omezí penetraci, ale snižují citlivost.'}
+ ]
+};
+
+CONTENT.pet[3]={
+ blocks:[
+ `<h3>Jak PET zjistí, odkud signál přišel</h3>
+  <p>PET nepoužívá kolimátor. Směr dává <b>koincidence</b>: při anihilaci vzniknou dva fotony 511 keV letící opačně, a když dva detektory zareagují <b>téměř současně</b>, anihilace proběhla na <b>přímce mezi nimi</b> (LOR). Polohu zdroje dostaneme jako průsečík mnoha takových přímek (viz Úvod a téma Softwarový dopočet).</p>
+  <p>K tomu přístroj potřebuje:</p>
+  <ul>
+  <li><b>Prstenec detektorů</b> kolem pacienta, aby se zachytily páry fotonů ze všech směrů.</li>
+  <li><b>Rychlé detektory a elektroniku</b>, která pozná, že dva zásahy proběhly v rozmezí jednotek nanosekund (<b>koincidenční okno</b>).</li>
+  <li><b>Energetické okno</b>, které vyřadí fotony, jež se v těle rozptýlily a ztratily energii.</li>
+  <li>U PET/CT také <b>CT</b>, které dává anatomii a mapu útlumu pro korekci (téma Softwarový dopočet).</li>
+  </ul>
+  <p>Ne každá koincidence ale ukazuje na správnou přímku. Rozeznáváme tři typy:</p>`,
+ {w:'coinc',title:'Tři typy koincidencí',lead:'Přepínej mezi typy. Čárkovaně je přímka, kterou přístroj sestaví, červeně špatně určené detektory.'},
+ `<ul>
+  <li><b>Pravé (T, trues)</b>: užitečný signál.</li>
+  <li><b>Rozptýlené (S, scatter)</b>: jeden nebo oba fotony se rozptýlily, přímka zdroj mine a rozmaže obraz. Část se vyřadí energetickým oknem.</li>
+  <li><b>Náhodné (R, randoms)</b>: dvě nezávislé anihilace, jejichž fotony se potkaly v okně. Přímka nemá s žádným zdrojem souvislost a přidává pozadí.</li>
+  </ul>
+  <h3>Proč: Comptonův rozptyl a energetické okno u 511 keV</h3>
+  <p>Stejně jako ve SPECT foton po rozptylu ztratí energii podle E′ = E / (1 + (E/511)(1 − cos θ)) a energetické okno ho může vyřadit. U 511 keV je to ale <b>obtížnější</b>. Rozptyl pod malým úhlem ztratí relativně málo energie a PET krystaly mají horší relativní energetické rozlišení než NaI při 140 keV (≈ 10–12 %), takže okno nesmí být úzké. Porovnej:</p>`,
+ {w:'compton',k:'pet',title:'Energie po rozptylu a okno u 511 keV',lead:'Přepínej mezi 140 keV a 511 keV při stejné šířce okna. U 511 keV okno vyřadí rozptyl už od menšího úhlu.'},
+ `<p>Tato situace se promítá do spektra: fotopík je široký a rozptýlené fotony zasahují do okna. Výsledkem je, že v PET zůstává v datech nezanedbatelná část rozptýlených koincidencí, a ta se musí <b>dopočítat a odečíst</b> (téma Softwarový dopočet).</p>`,
+ {w:'spectrum',k:'pet',title:'Spektrum 511 keV a energetické okno',lead:'Porovnej krystaly LYSO a BGO. Horší energetické rozlišení BGO znamená širší fotopík a méně účinné oddělení rozptylu.'},
+ `<h3>Náhodné koincidence a koincidenční okno</h3>
+  <p>Počet náhodných koincidencí mezi dvěma detektory je <b>R = 2τ · S₁ · S₂</b>, kde S₁ a S₂ jsou četnosti jednotlivých (single) událostí v detektorech a 2τ je šířka koincidenčního okna. Dvě důležité vlastnosti:</p>
+  <ul>
+  <li>S₁ a S₂ jsou úměrné aktivitě, takže <b>R roste s druhou mocninou aktivity</b>, zatímco pravé koincidence T rostou jen lineárně. Při vyšší aktivitě proto podíl náhodných roste.</li>
+  <li>R je úměrné <b>šířce okna</b>. Užší okno vyžaduje přesné časování, tedy rychlý krystal a fotodetektor. To je důvod, proč se v moderních přístrojích používá LYSO s dosvitem 40 ns a rychlé SiPM.</li>
+  </ul>
+  <p>Kvalitu dat popisuje <b>NEC</b> (noise equivalent counts): NEC = T² / (T + S + 2R). Vyjadřuje, kolik pravých koincidencí by dalo stejný poměr signál/šum, kdyby data neobsahovala rozptyl ani náhodné. Zkus změnit okno a aktivitu:</p>`,
+ {w:'rand',title:'Pravé a náhodné koincidence',lead:'Změň šířku koincidenčního okna a aktivitu. Sleduj, jak rychle roste R a jak klesá NEC vůči pravým.'},
+ `<h3>Time-of-flight (TOF)</h3>
+  <p>Fotony letí rychlostí světla (30 cm za 1 ns). Když se přesně změří <b>rozdíl času příletu</b> obou fotonů, dá se odhadnout, v jaké části LOR anihilace proběhla: foton, který přiletěl dřív, vznikl blíž k jednomu detektoru. Nejistota polohy je <b>Δx = c · Δt / 2</b>, kde Δt je časové rozlišení koincidence. Například 400 ps odpovídá Δx ≈ 6 cm, 200 ps ≈ 3 cm.</p>
+  <p>Tato informace nezlepší rozlišení obrazu, ale omezí, kam podél LOR se signál při rekonstrukci rozdělí. Šum v obraze se sníží, a to zvlášť u velkých pacientů. Pro jednoduchý případ je zisk poměru signál/šum zhruba √(D/Δx), kde D je rozměr objektu.</p>`,
+ {w:'tof',title:'Poloha anihilace podél LOR',lead:'Vyber časové rozlišení a změň průměr těla. Křivka ukazuje, kde podél přímky TOF umístí anihilaci.'},
+ `<p>Časové rozlišení záleží na <b>rychlosti krystalu</b> (světelný výtěžek a dosvit, téma Detekce) a na <b>fotodetektoru</b>. SiPM mají lepší časování než fotonásobiče, proto mají novější přístroje TOF kolem 200–300 ps a starší 400–550 ps.</p>
+  <h3>Prostorové rozlišení a jak ho zlepšit</h3>
+  <p>Rozlišení PET určují čtyři příspěvky, které se sčítají geometricky:</p>
+  <ul>
+  <li><b>Šířka krystalu d</b>: příspěvek d/2. Menší krystaly, ale víc jich je třeba.</li>
+  <li><b>Dosah pozitronu</b>: anihilace proběhne mimo místo rozpadu (téma Zdroj signálu). Příspěvek je největší u Rb-82 a Ga-68, nejmenší u F-18.</li>
+  <li><b>Nekolinearita</b>: fotony nelétí přesně opačně, ale pod úhlem 180° ± 0,25°. Příspěvek roste s průměrem prstence: 0,0022 · D (u prstence 83 cm ≈ 1,8 mm).</li>
+  <li><b>Určení zasaženého krystalu</b> v bloku (téma Detekce) a další vlivy.</li>
+  </ul>
+  <p>Výsledek je zhruba <b>R ≈ 1,25 · √((d/2)² + s² + (0,0022 D)² + b²)</b>. Vyzkoušej, co dominuje:</p>`,
+ {w:'petres',title:'Rozpočet rozlišení PET',lead:'Změň krystal, nuklid a průměr prstence. Pruhy ukazují jednotlivé příspěvky.'},
+ `<h3>Z čeho se skládá přístroj a co dělá</h3>
+  <ul>
+  <li><b>Prstenec bloků</b> (krystaly a fotodetektory): měří polohu zásahu, energii a čas.</li>
+  <li><b>Koincidenční jednotka</b>: páruje události z různých bloků v koincidenčním okně.</li>
+  <li><b>Energetické okno</b>: vyřazuje část rozptýlených fotonů.</li>
+  <li><b>Časování</b> (u TOF přístrojů): zapisuje rozdíl času příletu.</li>
+  <li><b>CT</b> v PET/CT: dává anatomii a mapu útlumu.</li>
+  </ul>
+  <h3>Jak lokalizaci zlepšit</h3>
+  <ul>
+  <li><b>Menší krystaly</b> a přesné určení zasaženého krystalu (SiPM umožňují číst krystaly po jednom).</li>
+  <li><b>Rychlé krystaly a fotodetektory</b> pro lepší TOF a užší koincidenční okno.</li>
+  <li><b>Nuklid s krátkým dosahem pozitronu</b> (např. F-18).</li>
+  <li><b>Menší průměr prstence</b> snižuje nekolinearitu, a zároveň zvyšuje citlivost.</li>
+  <li><b>Dostatek událostí</b> (déle nebo s vyšší aktivitou) proti šumu, ale ne tak, aby rostly náhodné.</li>
+  <li>Korekce rozptylu, náhodných koincidencí a útlumu při rekonstrukci (téma Softwarový dopočet).</li>
+  </ul>`,
+ {gloss:1}
+ ],
+ src:`Typy koincidencí, vzorec R = 2τ·S₁·S₂, NECR = T²/(T + S + 2R), vzorec pro rozlišení PET včetně hodnot dosahu pozitronu (F-18 0,54 mm, Ga-68 1,35 mm, Rb-82 2,60 mm), nekolinearita 0,0022·D, TOF Δx = c·Δt/2 a zisk √(D/Δx), mezní úhel rozptylu při 511 keV a okně ±15 % (≈ 34°): <a href="https://socr.umich.edu/BPAD1/BPAD1_notes/BPAD1_Chap06_NuclearMedicine_PET_SPECT.html" target="_blank" rel="noopener">SOCR, učební poznámky k PET a SPECT, kap. 6.5–6.6</a>. Časové rozlišení komerčních TOF přístrojů (400–550 ps starší, Vereos ≈ 310 ps) a vztah Δx = c·Δt/2: <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4747834" target="_blank" rel="noopener">přehled časového rozlišení v TOF PET (PMC4747834)</a>. Konstanty v grafu náhodných koincidencí jsou ilustrační. Typická šířka koincidenčního okna je údaj, který je třeba doložit v dokumentaci výrobce.`,
+ quiz:[
+  {q:'Co je u PET pravá koincidence?',o:['Zásah dvou fotonů z různých anihilací','Oba fotony z jedné anihilace zachycené bez rozptylu, přímka mezi detektory prochází zdrojem','Jeden foton zachycený dvěma detektory','Foton rozptýlený v těle'],a:1,w:'Jen pravé koincidence nesou správnou informaci o poloze. Rozptýlené a náhodné vedou k chybným přímkám.'},
+  {q:'Čím se liší náhodná koincidence od rozptýlené?',o:['Rozptýlená vzniká z jedné anihilace, jejíž foton změnil směr, náhodná ze dvou různých anihilací','Náhodná má vyšší energii','Rozptýlená vzniká v krystalu','Nijak'],a:0,w:'U rozptýlené existuje zdroj, ale přímka je chybná. U náhodné nemá přímka se zdrojem žádnou souvislost, protože fotony pocházejí z různých anihilací.'},
+  {q:'Proč náhodné koincidence rostou rychleji než pravé, když se zvyšuje aktivita?',o:['Protože se zkracuje poločas','R = 2τ·S₁·S₂ a singles S jsou úměrné aktivitě, takže R roste s druhou mocninou, T jen lineárně','Protože se zvětšuje energie fotonů','Protože se zvyšuje počet krystalů'],a:1,w:'Dvojnásobná aktivita znamená dvojnásobné S₁ i S₂, tedy čtyřnásobné R, ale jen dvojnásobné T.'},
+  {q:'Jak lze snížit počet náhodných koincidencí při stejné aktivitě?',o:['Zkrátit koincidenční okno, což vyžaduje rychlý krystal a elektroniku','Prodloužit koincidenční okno','Zvětšit krystaly','Použít kolimátor'],a:0,w:'R je úměrné šířce okna. Užší okno však vyžaduje přesné časování, proto se používá rychlý LYSO a SiPM.'},
+  {q:'Jakou nejistotu polohy podél LOR dává časové rozlišení 400 ps?',o:['≈ 6 cm','≈ 6 mm','≈ 60 cm','≈ 0,6 mm'],a:0,w:'Δx = c·Δt/2 = 0,03 cm/ps · 400 ps / 2 ≈ 6 cm.'},
+  {q:'Co TOF zlepší?',o:['Přímo prostorové rozlišení o řád','Poměr signálu k šumu, protože signál se rozdělí jen do kratšího úseku LOR','Dosah pozitronu','Energetické rozlišení krystalu'],a:1,w:'TOF omezí, kam podél LOR se signál při rekonstrukci rozdělí. Obraz je méně zašuměný, zvlášť u velkých pacientů. Rozlišení přímo nezmění.'},
+  {q:'Které příspěvky omezují prostorové rozlišení PET?',o:['Šířka krystalu, dosah pozitronu, nekolinearita a určení zasaženého krystalu','Jen dosah pozitronu','Jen velikost prstence','Jen barva světla scintilátoru'],a:0,w:'Všechny čtyři se skládají geometricky. Klinický F-18 PET je omezen hlavně šířkou krystalu a nekolinearitou, u Ga-68 a Rb-82 roste vliv dosahu pozitronu.'}
+ ]
+};
+
+/* ---------- Schéma: odkud záření přichází ---------- */
+function mountEmis(host){
+  var mode=0;
+  host.innerHTML='<div class="chips" role="group" aria-label="Typ zobrazení">'+
+    ['RTG / CT: zdroj mimo tělo','SPECT / PET: zdroj v těle'].map(function(t,j){return '<button type="button" class="chip" data-i="'+j+'" aria-pressed="'+(j===0)+'">'+t+'</button>'}).join('')+
+    '</div><svg class="chart" viewBox="0 0 560 250" role="img" aria-label="Schéma transmisního a emisního zobrazení"></svg><p class="read" aria-live="polite"></p>';
+  var svg=$('svg',host), rd=$('.read',host);
+  function draw(){
+    var s='';
+    if(mode===0){
+      s+='<ellipse class="body" cx="280" cy="112" rx="125" ry="84"/><circle class="organ" cx="285" cy="112" r="26"/>';
+      s+='<rect class="dev" x="30" y="92" width="36" height="40" rx="4"/><text x="48" y="150" text-anchor="middle">zdroj</text><text class="sub" x="48" y="166" text-anchor="middle">(rentgenka)</text>';
+      [52,82,112,142,172].forEach(function(y){
+        var through=Math.abs(112+(y-112)*0.524-112)<26;
+        s+='<line class="ray" style="opacity:'+(through?0.3:0.9)+'" x1="66" y1="112" x2="484" y2="'+y+'"/>';
+      });
+      s+='<rect class="dev" x="486" y="22" width="16" height="180" rx="3"/><text x="494" y="222" text-anchor="middle">detektor</text>';
+      rd.innerHTML='Záření prochází tělem. Detektor měří, <b>kolik ho cestou zmizelo</b> (hustší tkáň více pohlcuje, vzniká „stín“). Obraz ukazuje <b>stavbu</b> těla.';
+    }else{
+      s+='<ellipse class="ringe" cx="280" cy="112" rx="200" ry="100"/>';
+      for(var i=0;i<24;i++){var a=i*Math.PI/12; s+='<line class="xtal" x1="'+(280+200*Math.cos(a)).toFixed(1)+'" y1="'+(112+100*Math.sin(a)).toFixed(1)+'" x2="'+(280+211*Math.cos(a)).toFixed(1)+'" y2="'+(112+109*Math.sin(a)).toFixed(1)+'"/>'}
+      s+='<ellipse class="body" cx="280" cy="112" rx="100" ry="62"/>';
+      var src=[[250,100],[305,128],[282,92]], angs=[0.3,1.5,2.7,3.9,5.2];
+      src.forEach(function(p,j){
+        angs.forEach(function(a){var t=a+j*0.45; s+='<line class="ray" style="opacity:.55" x1="'+p[0]+'" y1="'+p[1]+'" x2="'+(280+200*Math.cos(t)).toFixed(1)+'" y2="'+(112+100*Math.sin(t)).toFixed(1)+'"/>'});
+      });
+      src.forEach(function(p){s+='<circle class="src" cx="'+p[0]+'" cy="'+p[1]+'" r="5"/>'});
+      s+='<text x="280" y="244" text-anchor="middle">detektory kolem těla · zdroje uvnitř těla</text>';
+      rd.innerHTML='Radioaktivní látka je v těle a záření z ní vychází ven. Detektory kolem těla zjišťují, <b>odkud a kolik</b> ho přichází. Obraz ukazuje <b>funkci</b>: kde se látka nahromadila.';
+    }
+    svg.innerHTML=s;
+  }
+  host.addEventListener('click',function(e){
+    var b=e.target.closest('.chip'); if(!b) return;
+    mode=+b.dataset.i;
+    host.querySelectorAll('.chip').forEach(function(c){c.setAttribute('aria-pressed',String(c===b))});
+    draw();
+  });
+  draw();
+}
+
+/* ---------- Grafy rozpadu ---------- */
+function mountDecay(host,key){
+  var list=ISO[key], i=0, f=0.2, id='d'+(++uid);
+  host.innerHTML='<div class="chips" role="group" aria-label="Radionuklid">'+
+    list.map(function(o,j){return '<button type="button" class="chip" data-i="'+j+'" aria-pressed="'+(j===0)+'">'+o.n+'</button>'}).join('')+
+    '</div><svg class="chart" viewBox="0 0 560 282" role="img" aria-label="Exponenciální pokles aktivity v čase"></svg>'+
+    '<label class="sl" for="'+id+'">Čas od kalibrace<input id="'+id+'" type="range" min="0" max="1000" value="200"></label>'+
+    '<p class="read" aria-live="polite"></p>';
+  var svg=$('svg',host), rd=$('.read',host), sl=$('input',host);
+  function draw(){
+    var o=list[i], T=o.t*5, L=48, R=520, Tp=18, B=232;
+    var X=function(t){return L+(R-L)*t/T}, Y=function(a){return B-(B-Tp)*a/100};
+    var s='';
+    [100,50,25,12.5].forEach(function(a){
+      s+='<line class="grid" x1="'+L+'" x2="'+R+'" y1="'+Y(a)+'" y2="'+Y(a)+'"/><text x="'+(L-8)+'" y="'+(Y(a)+4)+'" text-anchor="end">'+nf(a,1)+'</text>';
+    });
+    s+='<text x="'+L+'" y="10" text-anchor="start" class="sub">aktivita [%]</text>';
+    for(var k=0;k<=5;k++){
+      var x=X(k*o.t);
+      s+='<line class="tick" x1="'+x+'" x2="'+x+'" y1="'+B+'" y2="'+(B+5)+'"/><text x="'+x+'" y="'+(B+21)+'" text-anchor="middle">'+fmtT(k*o.t)+'</text><text class="sub" x="'+x+'" y="'+(B+37)+'" text-anchor="middle">'+k+' T½</text>';
+    }
+    var p='';
+    for(var n=0;n<=120;n++){var t=T*n/120;p+=(n?'L':'M')+X(t).toFixed(1)+' '+Y(100*Math.pow(2,-t/o.t)).toFixed(1)+' '}
+    s+='<path class="curve" d="'+p+'"/>';
+    var tt=f*T, a=100*Math.pow(2,-tt/o.t), mx=X(tt), my=Y(a);
+    s+='<line class="vl" x1="'+mx+'" x2="'+mx+'" y1="'+Tp+'" y2="'+B+'"/><circle class="mk" cx="'+mx+'" cy="'+my+'" r="6"/>';
+    s+='<text class="lab" x="'+(mx>R-70?mx-10:mx+10)+'" y="'+(my-10)+'" text-anchor="'+(mx>R-70?'end':'start')+'">'+nf(a,1)+' %</text>';
+    svg.innerHTML=s;
+    rd.innerHTML='Po <b>'+fmtT(tt)+'</b> zbývá <b>'+nf(a,1)+' %</b> počáteční aktivity ('+nf(tt/o.t,2)+' × T½).<br><span class="muted">'+o.n+': '+o.d+'</span>';
+  }
+  host.addEventListener('click',function(e){
+    var b=e.target.closest('.chip'); if(!b) return;
+    i=+b.dataset.i;
+    host.querySelectorAll('.chip').forEach(function(c){c.setAttribute('aria-pressed',String(c===b))});
+    draw();
+  });
+  sl.addEventListener('input',function(){f=sl.value/1000;draw()});
+  draw();
+}
+
+function mountBateman(host){
+  var id='g'+(++uid), f=0.32;
+  var lMo=Math.LN2/65.94, lTc=Math.LN2/6.0067, BR=0.875;
+  var tmax=Math.log(lTc/lMo)/(lTc-lMo);
+  var Mo=function(t){return 100*Math.exp(-lMo*t)};
+  var Tc=function(t){return 100*BR*lTc/(lTc-lMo)*(Math.exp(-lMo*t)-Math.exp(-lTc*t))};
+  host.innerHTML='<svg class="chart" viewBox="0 0 560 282" role="img" aria-label="Dorůstání Tc-99m v generátoru po eluci"></svg>'+
+    '<label class="sl" for="'+id+'">Čas po eluci<input id="'+id+'" type="range" min="0" max="1000" value="320"></label>'+
+    '<p class="read" aria-live="polite"></p>';
+  var svg=$('svg',host), rd=$('.read',host), sl=$('input',host);
+  function draw(){
+    var T=72, L=48, R=520, Tp=18, B=232;
+    var X=function(t){return L+(R-L)*t/T}, Y=function(a){return B-(B-Tp)*a/100};
+    var s='';
+    [0,25,50,75,100].forEach(function(a){
+      s+='<line class="grid" x1="'+L+'" x2="'+R+'" y1="'+Y(a)+'" y2="'+Y(a)+'"/><text x="'+(L-8)+'" y="'+(Y(a)+4)+'" text-anchor="end">'+a+'</text>';
+    });
+    s+='<text x="'+L+'" y="10" class="sub">aktivita vůči Mo-99 v čase 0 [%]</text>';
+    for(var h=0;h<=72;h+=12){var x=X(h);s+='<line class="tick" x1="'+x+'" x2="'+x+'" y1="'+B+'" y2="'+(B+5)+'"/><text x="'+x+'" y="'+(B+21)+'" text-anchor="middle">'+h+' h</text>'}
+    var pm='',pt='';
+    for(var n=0;n<=144;n++){var t=T*n/144;pm+=(n?'L':'M')+X(t).toFixed(1)+' '+Y(Mo(t)).toFixed(1)+' ';pt+=(n?'L':'M')+X(t).toFixed(1)+' '+Y(Tc(t)).toFixed(1)+' '}
+    s+='<path class="curve2" d="'+pm+'"/><path class="curve" d="'+pt+'"/>';
+    s+='<text class="leg" x="'+(X(34))+'" y="'+(Y(Tc(34))-12)+'">Tc-99m</text><text x="'+X(40)+'" y="'+(Y(Mo(40))-10)+'">Mo-99</text>';
+    s+='<line class="vl" x1="'+X(tmax)+'" x2="'+X(tmax)+'" y1="'+Y(Tc(tmax))+'" y2="'+B+'"/><text class="sub" x="'+(X(tmax)+6)+'" y="'+(B-6)+'">max ≈ '+nf(tmax,1)+' h</text>';
+    var t2=f*T, mx=X(t2);
+    s+='<circle class="mk" cx="'+mx+'" cy="'+Y(Tc(t2))+'" r="6"/><circle class="mk2" cx="'+mx+'" cy="'+Y(Mo(t2))+'" r="5"/>';
+    svg.innerHTML=s;
+    rd.innerHTML='Po <b>'+nf(t2,1)+' h</b>: Tc‑99m <b>'+nf(Tc(t2),0)+' %</b>, Mo‑99 '+nf(Mo(t2),0)+' %, poměr Tc/Mo '+nf(Tc(t2)/Mo(t2),2)+'.<br><span class="muted">Zjednodušený model: rozvětvení Mo‑99 → Tc‑99m '+nf(BR*100,1)+' %, kolona na začátku bez Tc‑99m.</span>';
+  }
+  sl.addEventListener('input',function(){f=sl.value/1000;draw()});
+  draw();
+}
+
+/* ---------- Kolimátor ---------- */
+function mountCollim(host){
+  var on=true, sv=0.55, id='c'+(++uid), hist=[], nb=1, emitted=0, acc=0, traces=[], raf=0, G={};
+  host.innerHTML='<div class="chips" role="group" aria-label="Kolimátor">'+
+    ['Bez kolimátoru','S kolimátorem'].map(function(t,j){return '<button type="button" class="chip" data-i="'+j+'" aria-pressed="'+(j===1)+'">'+t+'</button>'}).join('')+
+    '</div><canvas class="cv" role="img" aria-label="Dva zdroje v těle vysílají fotony do všech směrů. S kolimátorem dopadají na detektor jen fotony letící téměř kolmo a histogram má dva ostré píky."></canvas>'+
+    '<label class="sl" for="'+id+'">Délka otvorů kolimátoru (delší otvory = ostřejší obraz, méně fotonů)<input id="'+id+'" type="range" min="0" max="100" value="55"></label>'+
+    '<button type="button" class="btn">Vyslat další fotony</button><p class="read" aria-live="polite"></p>';
+  var cv=$('canvas',host), ctx=cv.getContext('2d'), rd=$('.read',host), sl=$('input',host);
+  function size(){var r=cv.getBoundingClientRect(),d=window.devicePixelRatio||1;cv.width=Math.round(r.width*d);cv.height=Math.round(r.height*d);ctx.setTransform(d,0,0,d,0,0)}
+  function geo(){
+    var w=cv.clientWidth,h=cv.clientHeight,d=0.02*w,L=0.05*w+(0.22*w-0.05*w)*sv;
+    G={w:w,h:h,xs:0.2*w,ys:[h/2-0.14*h,h/2+0.12*h],xd:0.64*w,d:d,L:L,alpha:Math.atan(d/L)};
+    nb=Math.max(1,Math.floor((h-16)/3));
+  }
+  function emit(n,trace){
+    for(var i=0;i<n;i++){
+      var si=Math.random()<0.5?0:1, th=(Math.random()*2-1)*Math.PI; emitted++;
+      if(Math.cos(th)<=0) continue;
+      var tn=Math.tan(th), y0=G.ys[si], yh=y0+(G.xd-G.xs)*tn;
+      var pass=on?Math.abs(tn)<G.d/G.L:true, inr=yh>=8&&yh<=G.h-8;
+      if(pass&&inr){
+        acc++; var b=Math.min(nb-1,Math.floor((yh-8)/3)); hist[b]=(hist[b]||0)+1;
+        if(trace) traces.push({x0:G.xs,y0:y0,x1:G.xd,y1:yh,ok:1,a:0});
+      }else if(trace&&on&&!pass){
+        var xe=G.xd-G.L-2, ye=y0+(xe-G.xs)*tn;
+        if(ye>4&&ye<G.h-4) traces.push({x0:G.xs,y0:y0,x1:xe,y1:ye,ok:0,a:0});
+      }
+    }
+  }
+  function draw(){
+    var w=G.w,h=G.h; ctx.clearRect(0,0,w,h);
+    var cs=getComputedStyle(cv), C=function(n){return cs.getPropertyValue(n).trim()};
+    var fg=C('--fg'), mu=C('--muted'), ln=C('--line'), ac=C('--accent');
+    ctx.strokeStyle=ln; ctx.lineWidth=2; ctx.beginPath(); ctx.ellipse(0.2*w,h/2,0.17*w,0.4*h,0,0,Math.PI*2); ctx.stroke();
+    traces.forEach(function(t){
+      ctx.globalAlpha=Math.max(0,1-t.a/16)*(t.ok?0.8:0.5); ctx.strokeStyle=t.ok?ac:mu; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(t.x0,t.y0); ctx.lineTo(t.x1,t.y1); ctx.stroke();
+    });
+    ctx.globalAlpha=1;
+    if(on){
+      var xc=G.xd-G.L-2, p=G.d+2; ctx.fillStyle=mu; ctx.globalAlpha=.8;
+      for(var y=8;y<h-8;y+=p) ctx.fillRect(xc,y,G.L,2);
+      ctx.globalAlpha=1; ctx.font='12px JetBrains Mono, monospace'; ctx.textAlign='center'; ctx.fillStyle=mu; ctx.fillText('kolimátor',xc+G.L/2,h-0-2>8?12:12);
+    }
+    ctx.fillStyle=fg; ctx.fillRect(G.xd,8,4,h-16);
+    var mx=1; for(var b=0;b<nb;b++) if((hist[b]||0)>mx) mx=hist[b];
+    var bx=G.xd+9, bw=w-bx-8; ctx.fillStyle=ac; ctx.globalAlpha=.85;
+    for(var b2=0;b2<nb;b2++) ctx.fillRect(bx,8+b2*3,bw*(hist[b2]||0)/mx,3);
+    ctx.globalAlpha=1;
+    G.ys.forEach(function(y){ctx.fillStyle=ac;ctx.beginPath();ctx.arc(G.xs,y,6,0,Math.PI*2);ctx.fill()});
+    ctx.font='12px Inter, sans-serif'; ctx.fillStyle=mu; ctx.textAlign='center';
+    ctx.fillText('zdroje v těle',0.2*w,h-6); ctx.fillText('detektor',G.xd+2,h-6);
+    ctx.textAlign='left'; ctx.fillText('počet fotonů',bx,h-6>20?h-6:h-6);
+    var deg=G.alpha*180/Math.PI;
+    rd.innerHTML=on?
+      'Z '+emitted+' vyslaných fotonů dopadlo na detektor <b>'+acc+' ('+nf(100*acc/emitted,1)+' %)</b>. Úhel přijetí kolimátoru je asi ±'+nf(deg,1)+'°.<br><span class="muted">Zjednodušený 2D model. Ve skutečném 3D kolimátoru je zachyceno řádově jen 0,01 % emitovaných fotonů.</span>':
+      'Z '+emitted+' vyslaných fotonů dopadlo na detektor <b>'+acc+' ('+nf(100*acc/emitted,1)+' %)</b>, ale z každého zdroje na všechna místa. Histogram je rozmazaná vlna a zdroje nerozlišíš.';
+  }
+  function reset(){
+    geo(); hist=[]; for(var i=0;i<nb;i++) hist[i]=0; emitted=0; acc=0; traces=[]; emit(3000,false); draw();
+  }
+  function burst(){
+    clearTimeout(raf);
+    if(reduce){emit(400,false);draw();return}
+    var f=0, loop=function(){
+      if(f<24) emit(25,true);
+      draw();
+      traces.forEach(function(t){t.a++}); traces=traces.filter(function(t){return t.a<16});
+      f++; if(f<24||traces.length) raf=rafT(loop); else draw();
+    };
+    raf=rafT(loop);
+  }
+  host.addEventListener('click',function(e){
+    var b=e.target.closest('.chip');
+    if(b){on=+b.dataset.i===1; host.querySelectorAll('.chip').forEach(function(c){c.setAttribute('aria-pressed',String(c===b))}); sl.disabled=!on; reset(); return}
+    if(e.target.closest('.btn')) burst();
+  });
+  sl.addEventListener('input',function(){sv=sl.value/100;reset()});
+  var again=function(){size();reset()};
+  redrawers.push(function(){draw()});
+  if('ResizeObserver' in window) new ResizeObserver(again).observe(cv);
+  size(); reset();
+}
+
+/* ---------- Rekonstrukce z pohledů ---------- */
+function mountRecon(host,key){
+  var N=64, NB=96, CN=NB/2-0.5, VIEWS=[1,2,3,4,6,8,12,16,24,32,48,64], vi=7, filt=false, id='r'+(++uid);
+  var phantom=new Float32Array(N*N);
+  for(var y=0;y<N;y++){for(var x=0;x<N;x++){
+    var X=x-31.5, Y=y-31.5, v=0;
+    if(X*X/(26*26)+Y*Y/(22*22)<=1) v=0.12;
+    if((x-24)*(x-24)+(y-26)*(y-26)<=25) v=1;
+    if((x-40)*(x-40)+(y-30)*(y-30)<=12.25) v=0.8;
+    if((x-30)*(x-30)+(y-41)*(y-41)<=16) v=0.55;
+    if((x-38)*(x-38)+(y-40)*(y-40)<=9) v=0;
+    phantom[y*N+x]=v;
+  }}
+  host.innerHTML='<div class="trio">'+
+    '<figure><canvas width="64" height="64" aria-label="Skutečné rozložení látky"></canvas><figcaption>skutečné rozložení</figcaption></figure>'+
+    '<figure><canvas width="96" height="64" aria-label="Sinogram, změřená data"></canvas><figcaption>změřená data (sinogram)</figcaption></figure>'+
+    '<figure><canvas width="64" height="64" aria-label="Rekonstruovaný obraz"></canvas><figcaption>rekonstrukce</figcaption></figure></div>'+
+    '<label class="sl" for="'+id+'">Počet pohledů (úhlů)<input id="'+id+'" type="range" min="0" max="'+(VIEWS.length-1)+'" step="1" value="'+vi+'"></label>'+
+    '<div class="chips"><button type="button" class="chip" aria-pressed="false">Filtr: vypnuto</button></div><p class="read" aria-live="polite"></p>';
+  var cvs=host.querySelectorAll('canvas'), sl=$('input',host), chip=$('.chip',host), rd=$('.read',host);
+  function cmap(v,ac){
+    v=Math.max(0,Math.min(1,v)); var r,g,b;
+    if(v<0.6){var t=v/0.6;r=ac[0]*t;g=ac[1]*t;b=ac[2]*t}
+    else{var u=(v-0.6)/0.4;r=ac[0]+(255-ac[0])*u;g=ac[1]+(255-ac[1])*u;b=ac[2]+(255-ac[2])*u}
+    return [r,g,b];
+  }
+  function paint(cv,w,h,fn,ac){
+    var c=cv.getContext('2d'), im=c.createImageData(w,h);
+    for(var yy=0;yy<h;yy++)for(var xx=0;xx<w;xx++){var col=cmap(fn(xx,yy),ac), o=(yy*w+xx)*4; im.data[o]=col[0];im.data[o+1]=col[1];im.data[o+2]=col[2];im.data[o+3]=255}
+    c.putImageData(im,0,0);
+  }
+  function draw(){
+    var n=VIEWS[vi], ac=rgb(getComputedStyle(host).getPropertyValue('--accent'));
+    var cs=[],sn=[],P=[],maxp=0,k,b;
+    for(k=0;k<n;k++){cs.push(Math.cos(Math.PI*k/n));sn.push(Math.sin(Math.PI*k/n))}
+    for(k=0;k<n;k++){
+      var p=new Float32Array(NB);
+      for(var yy=0;yy<N;yy++)for(var xx=0;xx<N;xx++){
+        var v=phantom[yy*N+xx]; if(!v) continue;
+        var pos=(xx-31.5)*cs[k]+(yy-31.5)*sn[k]+CN, i0=Math.floor(pos), fr=pos-i0;
+        p[i0]+=v*(1-fr); p[i0+1]+=v*fr;
+      }
+      for(b=0;b<NB;b++) if(p[b]>maxp) maxp=p[b];
+      P.push(p);
+    }
+    var Q=P;
+    if(filt){
+      Q=P.map(function(p){
+        var q=new Float32Array(NB);
+        for(var bb=0;bb<NB;bb++){
+          var sum=0;
+          for(var m=-(NB-1);m<=NB-1;m++){
+            var j=bb-m; if(j<0||j>=NB) continue;
+            var hk=m===0?0.25:((m&1)?-1/(Math.PI*Math.PI*m*m):0);
+            sum+=hk*p[j];
+          }
+          q[bb]=sum;
+        }
+        return q;
+      });
+    }
+    var img=new Float32Array(N*N), mx=1e-9;
+    for(var y2=0;y2<N;y2++)for(var x2=0;x2<N;x2++){
+      var a=0;
+      for(var k2=0;k2<n;k2++){
+        var pos2=(x2-31.5)*cs[k2]+(y2-31.5)*sn[k2]+CN, j0=Math.floor(pos2), ff=pos2-j0;
+        a+=Q[k2][j0]*(1-ff)+Q[k2][j0+1]*ff;
+      }
+      a*=Math.PI/n; if(a<0) a=0; img[y2*N+x2]=a; if(a>mx) mx=a;
+    }
+    paint(cvs[0],N,N,function(x,y){return phantom[y*N+x]},ac);
+    paint(cvs[1],NB,64,function(x,y){
+      var kk=Math.floor(y*n/64); if(kk>=n) return 0;
+      return P[kk][x]/(maxp||1);
+    },ac);
+    paint(cvs[2],N,N,function(x,y){return img[y*N+x]/mx},ac);
+    var msg=filt?'Filtr zvýrazní ostré hrany a odstraní rozmazání, které zbývá po prosté zpětné projekci.':'Bez filtru se každý pohled rozetře zpět přes celý obraz, a proto kolem zdrojů zůstává rozmazání (hvězdicovité paprsky).';
+    rd.innerHTML='<b>'+n+' '+pl(n)+'.</b> '+(n<4?'S tak málo pohledy se zdroje jen rozmažou do pruhů a polohu v hloubce neznáme. ':n<16?'Zdroje se začínají oddělovat, ale kolem nich zůstávají artefakty. ':'Zdroje jsou dobře oddělené. ')+msg+'<br><span class="muted">Skutečný SPECT snímá typicky desítky až kolem stovky úhlů.</span>';
+  }
+  sl.addEventListener('input',function(){vi=+sl.value;draw()});
+  chip.addEventListener('click',function(){filt=!filt;chip.setAttribute('aria-pressed',String(filt));chip.textContent='Filtr: '+(filt?'zapnuto':'vypnuto');draw()});
+  redrawers.push(draw);
+  draw();
+}
+
+/* ---------- LOR ---------- */
+function mountLor(host){
+  var id='l'+(++uid), MAXN=1600, ev=[], r=rng(11), N=60;
+  for(var i=0;i<MAXN;i++){ev.push({s:r()<0.62?0:1,a:r()*Math.PI*2})}
+  host.innerHTML='<canvas class="cv" role="img" aria-label="Přímky koincidence se s rostoucím počtem událostí protínají v místech dvou zdrojů"></canvas>'+
+    '<label class="sl" for="'+id+'">Počet zachycených událostí<input id="'+id+'" type="range" min="0" max="1000" value="330"></label><p class="read" aria-live="polite"></p>';
+  var cv=$('canvas',host), ctx=cv.getContext('2d'), sl=$('input',host), rd=$('.read',host);
+  function size(){var rr=cv.getBoundingClientRect(),d=window.devicePixelRatio||1;cv.width=Math.round(rr.width*d);cv.height=Math.round(rr.height*d);ctx.setTransform(d,0,0,d,0,0)}
+  function draw(){
+    var w=cv.clientWidth,h=cv.clientHeight; ctx.clearRect(0,0,w,h);
+    var cs=getComputedStyle(cv), C=function(n){return cs.getPropertyValue(n).trim()};
+    var fg=C('--fg'), mu=C('--muted'), ln=C('--line'), ac=C('--accent');
+    var G=Math.min(w,h)/2-16; ctx.save(); ctx.translate(w/2,h/2);
+    ctx.strokeStyle=ln; ctx.lineWidth=1; ctx.beginPath(); ctx.arc(0,0,G,0,Math.PI*2); ctx.stroke();
+    var NC=48; ctx.lineWidth=9; ctx.strokeStyle=mu; ctx.globalAlpha=.3;
+    for(var i=0;i<NC;i++){ctx.beginPath();ctx.arc(0,0,G+6,i*2*Math.PI/NC+.02,(i+1)*2*Math.PI/NC-.02);ctx.stroke()}
+    var S=[{x:-0.30*G,y:-0.14*G},{x:0.28*G,y:0.18*G}];
+    ctx.strokeStyle=ac; ctx.globalAlpha=N<25?0.7:Math.min(0.5,Math.max(0.035,1.6/Math.sqrt(N))); ctx.lineWidth=1;
+    ctx.beginPath();
+    for(var j=0;j<N;j++){
+      var e=ev[j], P=S[e.s], dx=Math.cos(e.a), dy=Math.sin(e.a), pd=P.x*dx+P.y*dy, disc=Math.sqrt(Math.max(0,pd*pd-(P.x*P.x+P.y*P.y)+G*G));
+      ctx.moveTo(P.x+dx*(-pd+disc),P.y+dy*(-pd+disc)); ctx.lineTo(P.x+dx*(-pd-disc),P.y+dy*(-pd-disc));
+    }
+    ctx.stroke(); ctx.globalAlpha=1;
+    ctx.strokeStyle=fg; ctx.lineWidth=1.5;
+    S.forEach(function(p){ctx.beginPath();ctx.arc(p.x,p.y,5,0,Math.PI*2);ctx.stroke()});
+    ctx.restore();
+    ctx.fillStyle=mu; ctx.font='12px Inter, sans-serif'; ctx.textAlign='left'; ctx.fillText('kroužky = skutečné zdroje',12,h-10);
+    rd.innerHTML='Zobrazeno <b>'+N+'</b> přímek koincidence (LOR). '+(N<30?'Zatím je to jen svazek čar a polohu zdrojů nepoznáš.':N<300?'Přímky se začínají protínat v místech zdrojů, obraz je ještě zrnitý (šum).':'Průsečíky jsou jasně vidět. Čím víc událostí, tím menší šum.')+'<br><span class="muted">Slabší zdroj (pravý dole) vydává méně událostí, proto je vidět později.</span>';
+  }
+  sl.addEventListener('input',function(){N=Math.max(2,Math.round(2*Math.pow(10,sl.value/1000*2.9)));draw()});
+  N=Math.max(2,Math.round(2*Math.pow(10,330/1000*2.9)));
+  redrawers.push(function(){size();draw()});
+  if('ResizeObserver' in window) new ResizeObserver(function(){size();draw()}).observe(cv);
+  size(); draw();
+}
+
+/* ---------- Logistika F-18 ---------- */
+function mountLogist(host){
+  var list=[{n:'F-18',t:109.8},{n:'C-11',t:20.4},{n:'O-15',t:2.04}], i=0, mins=120, id='o'+(++uid);
+  host.innerHTML='<div class="chips" role="group" aria-label="Radionuklid">'+
+    list.map(function(o,j){return '<button type="button" class="chip" data-i="'+j+'" aria-pressed="'+(j===0)+'">'+o.n+'</button>'}).join('')+'</div>'+
+    '<label class="sl" for="'+id+'">Doba převozu<input id="'+id+'" type="range" min="0" max="360" step="5" value="120"></label>'+
+    '<p class="read" aria-live="polite"></p>';
+  var sl=$('input',host), rd=$('.read',host);
+  function draw(){
+    var o=list[i], f=Math.pow(2,mins/o.t), big;
+    if(f<1000) big=nf(f,2)+' ×'; else {var e=Math.floor(Math.log10(f)), m=f/Math.pow(10,e); big=nf(m,1)+' × 10<sup>'+e+'</sup> ×'}
+    var need=300*f, needTxt=need<1e6?nf(need,0)+' MBq':nf(need/Math.pow(10,Math.floor(Math.log10(need))),1)+' × 10<sup>'+Math.floor(Math.log10(need))+'</sup> MBq';
+    var msg=f<1.05?'Bez převozu se nic neztrácí.':f<3?'Zvládnutelné: stačí vyrobit zhruba '+nf(f,1)+'× víc, proto cyklotronová centra rozvážejí F‑18 do okolí.':f<10?'Už je to znatelná ztráta, nuklid by měl být vyráběn blízko.':'Prakticky nemožné. Takový nuklid se musí vyrábět přímo u přístroje.';
+    rd.innerHTML='Po <b>'+fmtT(mins)+'</b> převozu klesne aktivita na '+nf(100/f,f>100?4:1)+' %. Aby bylo při aplikaci 300 MBq, musí být na začátku <b>'+needTxt+'</b>.<div class="big">'+big+'</div><span class="muted">'+msg+' ('+o.n+', T½ '+fmtT(o.t)+')</span>';
+  }
+  host.addEventListener('click',function(e){
+    var b=e.target.closest('.chip'); if(!b) return;
+    i=+b.dataset.i; host.querySelectorAll('.chip').forEach(function(c){c.setAttribute('aria-pressed',String(c===b))}); draw();
+  });
+  sl.addEventListener('input',function(){mins=+sl.value;draw()});
+  draw();
+}
+
+/* ---------- Anihilace: prstenec + detail zdroje ---------- */
+function mountAnnih(host){
+  var isos=[
+    {n:'F-18',R:0.6,PX:80,d:'střední dosah pozitronu ≈ 0,6 mm'},
+    {n:'Ga-68',R:3,PX:30,d:'střední dosah pozitronu ≈ 3 mm'}
+  ];
+  var k=0, ev=null, start=0, tm=0, cur=9, T1=1.8, T3=3.2, NC=48, id='a'+(++uid);
+  var stats=isos.map(function(){return {n:0,sum:0}});
+  host.innerHTML='<div class="chips" role="group" aria-label="Radionuklid">'+
+    isos.map(function(o,j){return '<button type="button" class="chip" data-i="'+j+'" aria-pressed="'+(j===0)+'">'+o.n+'</button>'}).join('')+
+    '</div><div class="duo"><canvas class="cv" role="img" aria-label="Pohled na celé tělo: dva fotony 511 keV letí od zdroje opačnými směry a rozsvítí dva protilehlé detektory v prstenci."></canvas>'+
+    '<canvas class="cv" role="img" aria-label="Detail zdroje v milimetrech: pozitron uletí malou dráhu, anihiluje a přímka fotonů míjí zdroj o vyznačenou vzdálenost."></canvas></div>'+
+    '<label class="sl" for="'+id+'">Průběh děje (posuň a projdi děj ručně)<input id="'+id+'" type="range" min="0" max="1000" value="1000"></label><button type="button" class="btn">Emitovat pozitron</button><p class="read" aria-live="polite"></p>';
+  var cvs=host.querySelectorAll('canvas'), cvA=cvs[0], cvB=cvs[1], cA=cvA.getContext('2d'), cB=cvB.getContext('2d'), rd=$('.read',host), sl=$('input',host);
+  function size(cv,c){var r=cv.getBoundingClientRect(),d=window.devicePixelRatio||1;cv.width=Math.round(r.width*d);cv.height=Math.round(r.height*d);c.setTransform(d,0,0,d,0,0)}
+  function make(){
+    var R=isos[k].R*(0.5+Math.random()*1.0), a=Math.random()*Math.PI*2, pa=Math.random()*Math.PI*2, ph=Math.random()*6.28, sg=Math.random()<.5?1:-1;
+    var P={x:Math.cos(a)*R,y:Math.sin(a)*R}, d={x:Math.cos(pa),y:Math.sin(pa)}, pts=[], N=60;
+    for(var i=0;i<=N;i++){var u=i/N, w=sg*R*0.22*Math.sin(Math.PI*u)*Math.sin(2*Math.PI*u*1.25+ph);pts.push({x:P.x*u-Math.sin(a)*w,y:P.y*u+Math.cos(a)*w})}
+    var pd=P.x*d.x+P.y*d.y;
+    return {R:R,P:P,d:d,pts:pts,F:{x:P.x-pd*d.x,y:P.y-pd*d.y},err:Math.abs(P.x*d.y-P.y*d.x),fin:false};
+  }
+  function fmt(x){return nf(x,2)+' mm'}
+  function finish(){
+    if(!ev) return;
+    if(!ev.fin){ev.fin=true;stats[k].n++;stats[k].sum+=ev.err}
+    var s=stats[k];
+    rd.innerHTML='Pozitron uletěl <b>'+fmt(ev.R)+'</b>. Přímka koincidence míjí zdroj o <b>'+fmt(ev.err)+'</b>.<br><span class="muted">'+isos[k].n+', '+isos[k].d+'. Průměrná chyba z '+s.n+' '+(s.n===1?'pokusu':'pokusů')+': '+fmt(s.sum/s.n)+'. V levém pohledu (měřítko těla) je tato chyba neviditelná, proto je vpravo detail. Měřítko detailu je pro každý nuklid jiné.</span>';
+  }
+  function cols(cv){var cs=getComputedStyle(cv),C=function(n){return cs.getPropertyValue(n).trim()};return {fg:C('--fg'),mu:C('--muted'),ln:C('--line'),ac:C('--accent')}}
+  function segIdx(ang){return Math.floor(((ang+2*Math.PI)%(2*Math.PI))/(2*Math.PI/NC))}
+  function drawA(el){
+    var w=cvA.clientWidth,h=cvA.clientHeight,c=cA,K=cols(cvA); c.clearRect(0,0,w,h);
+    var G=Math.min(w,h)/2-20, d=ev.d, q=Math.max(0,Math.min(1,(el-T1)/(T3-T1)));
+    c.save(); c.translate(w/2,h/2); c.lineCap='butt';
+    c.strokeStyle=K.ln; c.lineWidth=1; c.beginPath(); c.arc(0,0,G,0,Math.PI*2); c.stroke();
+    c.lineWidth=9; c.strokeStyle=K.mu; c.globalAlpha=.3;
+    for(var i=0;i<NC;i++){c.beginPath();c.arc(0,0,G+6,i*2*Math.PI/NC+.02,(i+1)*2*Math.PI/NC-.02);c.stroke()}
+    c.globalAlpha=1;
+    if(el<T1){var ph=(el*1.4)%1; c.strokeStyle=K.ac; c.globalAlpha=1-ph; c.lineWidth=2; c.beginPath(); c.arc(0,0,6+22*ph,0,Math.PI*2); c.stroke(); c.globalAlpha=1}
+    if(el>=T1){
+      var fl=Math.max(0,1-(el-T1)/0.4); if(fl>0){c.fillStyle=K.fg;c.globalAlpha=fl*.45;c.beginPath();c.arc(0,0,7+24*(1-fl),0,Math.PI*2);c.fill();c.globalAlpha=1}
+      c.strokeStyle=K.fg; c.lineWidth=2;
+      c.beginPath(); c.moveTo(0,0); c.lineTo(d.x*G*q,d.y*G*q); c.moveTo(0,0); c.lineTo(-d.x*G*q,-d.y*G*q); c.stroke();
+      c.fillStyle=K.fg; [1,-1].forEach(function(s){c.beginPath();c.arc(s*d.x*G*q,s*d.y*G*q,4.5,0,Math.PI*2);c.fill()});
+      if(q>=1){
+        [Math.atan2(d.y,d.x),Math.atan2(-d.y,-d.x)].forEach(function(a){
+          var ix=segIdx(a); c.strokeStyle=K.ac; c.lineWidth=9; c.beginPath(); c.arc(0,0,G+6,ix*2*Math.PI/NC+.02,(ix+1)*2*Math.PI/NC-.02); c.stroke();
+          c.fillStyle=K.mu; c.font='12px JetBrains Mono, monospace'; c.textAlign='center';
+          c.fillText('511 keV',Math.cos(a)*(G*0.66)-Math.sin(a)*0,Math.sin(a)*(G*0.66)+(Math.sin(a)>0?16:-10));
+        });
+      }
+    }
+    c.fillStyle=K.ac; c.beginPath(); c.arc(0,0,5,0,Math.PI*2); c.fill();
+    c.restore();
+    c.fillStyle=K.mu; c.font='12px Inter, sans-serif'; c.textAlign='left'; c.fillText('celé tělo, prstenec detektorů',10,16);
+    if(q>=1){c.textAlign='left';c.fillText('koincidence → přímka LOR',10,h-10)}
+  }
+  function drawB(el){
+    var w=cvB.clientWidth,h=cvB.clientHeight,c=cB,K=cols(cvB); c.clearRect(0,0,w,h);
+    var px=isos[k].PX, cx=w/2, cy=h/2, P=ev.P, d=ev.d, L=w+h;
+    var X=function(m){return cx+m*px}, Y=function(m){return cy+m*px};
+    var q=Math.max(0,Math.min(1,(el-T1)/(T3-T1)));
+    c.lineCap='round'; c.lineJoin='round';
+    c.strokeStyle=K.ln; c.lineWidth=1; c.globalAlpha=.6;
+    for(var gx=cx%px; gx<w; gx+=px){c.beginPath();c.moveTo(gx,0);c.lineTo(gx,h);c.stroke()}
+    for(var gy=cy%px; gy<h; gy+=px){c.beginPath();c.moveTo(0,gy);c.lineTo(w,gy);c.stroke()}
+    c.globalAlpha=1;
+    var tp=Math.min(1,el/T1), ease=1-Math.pow(1-tp,2), idx=ease*(ev.pts.length-1), n0=Math.min(ev.pts.length-1,Math.floor(idx));
+    c.strokeStyle=K.ac; c.lineWidth=3; c.beginPath(); c.moveTo(X(0),Y(0));
+    for(var j=1;j<=n0;j++) c.lineTo(X(ev.pts[j].x),Y(ev.pts[j].y));
+    var nx=ev.pts[Math.min(n0+1,ev.pts.length-1)], p0=ev.pts[n0], fr=idx-n0, hx=p0.x+(nx.x-p0.x)*fr, hy=p0.y+(nx.y-p0.y)*fr;
+    c.lineTo(X(hx),Y(hy)); c.stroke();
+    if(el<T1){c.fillStyle=K.ac;c.beginPath();c.arc(X(hx),Y(hy),5,0,Math.PI*2);c.fill()}
+    c.fillStyle=K.ac; c.beginPath(); c.arc(X(0),Y(0),6,0,Math.PI*2); c.fill();
+    var ox=P.x>=0?1:-1;
+    c.font='12px Inter, sans-serif'; c.fillStyle=K.mu;
+    c.textAlign=ox>0?'right':'left'; c.fillText('zdroj (rozpad)',X(0)-ox*10,Y(0)+(P.y>=0?-12:20));
+    if(el>=T1){
+      var fl=Math.max(0,1-(el-T1)/0.5); if(fl>0){c.fillStyle=K.fg;c.globalAlpha=fl*.45;c.beginPath();c.arc(X(P.x),Y(P.y),7+34*(1-fl),0,Math.PI*2);c.fill();c.globalAlpha=1}
+      if(q>0){c.strokeStyle=K.fg;c.lineWidth=2.5;c.beginPath();c.moveTo(X(P.x),Y(P.y));c.lineTo(X(P.x)+d.x*L*q,Y(P.y)+d.y*L*q);c.moveTo(X(P.x),Y(P.y));c.lineTo(X(P.x)-d.x*L*q,Y(P.y)-d.y*L*q);c.stroke()}
+      c.fillStyle=K.fg; c.beginPath(); c.arc(X(P.x),Y(P.y),4.5,0,Math.PI*2); c.fill();
+      c.fillStyle=K.mu; c.textAlign=ox>0?'left':'right'; c.fillText('anihilace',X(P.x)+ox*10,Y(P.y)+(P.y>=0?20:-10));
+      if(q>=1){
+        c.strokeStyle=K.ac; c.lineWidth=3; c.beginPath(); c.moveTo(X(0),Y(0)); c.lineTo(X(ev.F.x),Y(ev.F.y)); c.stroke();
+        c.fillStyle=K.ac; c.beginPath(); c.arc(X(ev.F.x),Y(ev.F.y),3.5,0,Math.PI*2); c.fill();
+        c.font='600 13px JetBrains Mono, monospace'; c.textAlign='right'; c.fillText('chyba polohy '+fmt(ev.err),w-10,h-12);
+      }
+    }
+    c.font='12px Inter, sans-serif'; c.fillStyle=K.mu; c.textAlign='left'; c.fillText('detail zdroje, mřížka 1 mm',10,16);
+    c.strokeStyle=K.fg; c.lineWidth=2; c.beginPath(); c.moveTo(14,h-16); c.lineTo(14+px,h-16); c.moveTo(14,h-20); c.lineTo(14,h-12); c.moveTo(14+px,h-20); c.lineTo(14+px,h-12); c.stroke();
+    c.fillStyle=K.mu; c.font='12px JetBrains Mono, monospace'; c.fillText('1 mm',14,h-24);
+  }
+  function draw(el){cur=el;drawA(el);drawB(el)}
+  function stage(el){return el<T1?'Pozitron letí a ztrácí energii.':el<T3?'Pozitron anihiloval, dva fotony 511 keV letí opačnými směry k detektorům.':''}
+  function stop(){clearInterval(tm);tm=0}
+  function play(){
+    stop(); ev=make();
+    if(reduce){sl.value=0;draw(0);rd.innerHTML='<span class="muted">V systému máš vypnuté animace. Posouvej posuvník Průběh děje a projdi děj ručně.</span>';return}
+    start=performance.now(); rd.innerHTML='<span class="muted">'+stage(0)+'</span>';
+    tm=setInterval(function(){
+      var el=(performance.now()-start)/1000;
+      if(el>=T3){stop();sl.value=1000;draw(T3);finish();return}
+      sl.value=Math.round(el/T3*1000); draw(el);
+      rd.innerHTML='<span class="muted">'+stage(el)+'</span>';
+    },30);
+  }
+  sl.addEventListener('input',function(){
+    stop(); if(!ev) ev=make();
+    var el=sl.value/1000*T3; draw(el);
+    if(+sl.value===1000) finish(); else rd.innerHTML='<span class="muted">'+stage(el)+'</span>';
+  });
+  host.addEventListener('click',function(e){
+    var b=e.target.closest('.chip');
+    if(b){k=+b.dataset.i;host.querySelectorAll('.chip').forEach(function(x){x.setAttribute('aria-pressed',String(x===b))});play();return}
+    if(e.target.closest('.btn')) play();
+  });
+  var rs=function(){size(cvA,cA);size(cvB,cB);if(ev) draw(cur)};
+  redrawers.push(rs);
+  if('ResizeObserver' in window){new ResizeObserver(rs).observe(cvA);new ResizeObserver(rs).observe(cvB)}
+  size(cvA,cA); size(cvB,cB); ev=make(); draw(9); finish();
+}
+
+/* ---------- Pomocné ---------- */
+function sci(x){
+  if(!isFinite(x)||x===0) return '0';
+  var e=Math.floor(Math.log10(Math.abs(x))), m=x/Math.pow(10,e);
+  if(e>-3&&e<6) return nf(x,e<0?-e+1:(e<2?1:0));
+  return nf(m,1)+' × 10<sup>'+(e<0?'−'+(-e):e)+'</sup>';
+}
+function randn(){var u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)}
+function poisson(l){
+  if(l<=0) return 0;
+  if(l>30) return Math.max(0,Math.round(l+Math.sqrt(l)*randn()));
+  var L=Math.exp(-l),k=0,p=1; do{k++;p*=Math.random()}while(p>L); return k-1;
+}
+
+/* ---------- Řez detektorem ---------- */
+var STACK={
+ spect:[
+  {n:'Kolimátor',d:'Olověná deska s úzkými otvory. Propustí jen fotony letící ve směru otvorů, a tím určí, odkud signál přichází. Sám signál neměří, ale bez něj by obraz neměl smysl.'},
+  {n:'Krystal NaI(Tl)',d:'Deska tlustá zhruba 9,5 mm o ploše desítek centimetrů. Foton v ní předá energii a krystal krátce zasvítí. Je hermeticky zapouzdřený, protože NaI pohlcuje vodní páry.'},
+  {n:'Světlovod',d:'Vrstva skla nebo plastu mezi krystalem a fotonásobiči. Rozloží světlo z jednoho záblesku mezi několik trubic, aby se z poměru jejich signálů dala spočítat poloha.'},
+  {n:'Fotonásobiče',d:'Pole několika desítek trubic. Každá přemění světlo na elektrický impuls a zesílí ho zhruba milionkrát.'},
+  {n:'Elektronika',d:'Z poměru signálů trubic spočítá polohu záblesku a ze součtu energii fotonu. Do obrazu zapíše jen události, jejichž energie leží v nastaveném okně kolem fotopíku.'}
+ ],
+ pet:[
+  {n:'Krystalový blok',d:'Matice úzkých hranolů ze scintilátoru (například 8 × 8 krystalů o průřezu zhruba 4 × 4 mm a délce kolem 20 mm). Foton v hranolu předá energii a ten zasvítí.'},
+  {n:'Světlovod',d:'Vrstva mezi krystaly a fotodetektory. Rozdělí světlo z jednoho krystalu mezi čtyři fotodetektory podle jeho polohy, aby se zasažený krystal dal určit z poměru signálů.'},
+  {n:'Fotodetektory',d:'Čtyři fotonásobiče, nebo u novějších přístrojů pole SiPM. Převedou světlo na elektrický signál.'},
+  {n:'Elektronika',d:'Určí, který krystal byl zasažen, jakou energii měl foton a kdy přiletěl (čas s přesností řádu stovek pikosekund). Koincidenční jednotka pak páruje události z různých bloků v okně několika nanosekund.'},
+  {n:'Prstenec',d:'Desítky bloků tvoří modul, moduly kruh a několik kruhů za sebou tunel kolem pacienta. Celkem je to řádově desítky tisíc krystalů.'}
+ ]
+};
+function mountStack(host,key){
+  var L=STACK[key], sel=0;
+  host.innerHTML='<div class="chips" role="group" aria-label="Vrstva">'+L.map(function(o,j){return '<button type="button" class="chip" data-i="'+j+'" aria-pressed="'+(j===0)+'">'+o.n+'</button>'}).join('')+'</div>'+
+    '<svg class="chart" viewBox="0 0 560 250" role="img" aria-label="Řez detektorem po vrstvách"></svg><p class="read" aria-live="polite"></p>';
+  var svg=$('svg',host), rd=$('.read',host);
+  function lay(i,inner){return '<g class="lg'+(i===sel?' sel':'')+'" data-i="'+i+'" style="cursor:pointer">'+inner+'</g>'}
+  function draw(){
+    var s='<style>.lg rect.b,.lg circle.b{fill:var(--bg);stroke:var(--line);stroke-width:2}.lg.sel rect.b,.lg.sel circle.b{fill:var(--accent-soft);stroke:var(--accent)}.lg text{fill:var(--muted);font:13px var(--font-mono)}.lg.sel text{fill:var(--accent);font-weight:600}.lg line.l{stroke:var(--line);stroke-width:1}.lg.sel line.l{stroke:var(--accent)}</style>';
+    var lab=function(i,y,t,x0){x0=x0||372;return '<line class="l" x1="'+x0+'" x2="'+(x0+24)+'" y1="'+y+'" y2="'+y+'"/><text x="'+(x0+30)+'" y="'+(y+4)+'">'+t+'</text>'};
+    var arrow='<line class="ray" x1="130" y1="6" x2="130" y2="30"/><polygon points="124,28 136,28 130,38" fill="var(--accent)"/><text x="142" y="22" style="fill:var(--muted);font:12px var(--font-mono)">foton</text>';
+    if(key==='spect'){
+      s+=arrow;
+      var c='';for(var i=0;i<13;i++) c+='<rect class="b" x="'+(60+i*21.5)+'" y="42" width="8" height="48" rx="1"/>';
+      s+=lay(0,c+lab(0,66,'kolimátor'));
+      s+=lay(1,'<rect class="b" x="60" y="96" width="320" height="22" rx="3"/>'+lab(1,107,'krystal NaI(Tl)'));
+      s+=lay(2,'<rect class="b" x="60" y="122" width="320" height="22" rx="3"/>'+lab(2,133,'světlovod'));
+      var p='';for(var j=0;j<5;j++) p+='<rect class="b" x="'+(60+j*64.5)+'" y="150" width="56" height="50" rx="6"/>';
+      s+=lay(3,p+lab(3,175,'fotonásobiče'));
+      s+=lay(4,'<rect class="b" x="60" y="208" width="320" height="30" rx="3"/>'+lab(4,223,'elektronika'));
+    }else{
+      s+=arrow;
+      var cr='';for(var a=0;a<8;a++) cr+='<rect class="b" x="'+(20+a*28)+'" y="42" width="23" height="80" rx="2"/>';
+      s+=lay(0,cr+lab(0,82,'krystalový blok',250));
+      s+=lay(1,'<rect class="b" x="20" y="128" width="219" height="20" rx="3"/>'+lab(1,138,'světlovod',250));
+      var f='';for(var b=0;b<2;b++) f+='<rect class="b" x="'+(20+b*115)+'" y="154" width="104" height="44" rx="5"/>';
+      s+=lay(2,f+lab(2,176,'fotodetektory',250));
+      s+=lay(3,'<rect class="b" x="20" y="206" width="219" height="30" rx="3"/>'+lab(3,221,'elektronika',250));
+      var r='<circle class="b" cx="490" cy="130" r="50" style="fill:none"/>';
+      for(var k2=0;k2<16;k2++){var an=k2*Math.PI/8,x=490+50*Math.cos(an),y=130+50*Math.sin(an);r+='<rect class="b" x="'+(x-5)+'" y="'+(y-5)+'" width="10" height="10" rx="2"/>'}
+      s+=lay(4,r+'<text x="490" y="205" text-anchor="middle">prstenec</text>');
+    }
+    svg.innerHTML=s;
+    rd.innerHTML='<b>'+L[sel].n+'.</b> '+L[sel].d;
+  }
+  function pick(i){sel=i;host.querySelectorAll('.chip').forEach(function(c){c.setAttribute('aria-pressed',String(+c.dataset.i===i))});draw()}
+  host.addEventListener('click',function(e){
+    var c=e.target.closest('.chip'); if(c){pick(+c.dataset.i);return}
+    var g=e.target.closest('.lg'); if(g) pick(+g.dataset.i);
+  });
+  draw();
+}
+
+/* ---------- Kolik fotonů krystal zastaví ---------- */
+function mountStop(host,key){
+  var cur=key==='spect'?[
+    {n:'NaI(Tl), 140 keV',L:3.9},{n:'NaI(Tl), 511 keV',L:29.1}
+  ]:[
+    {n:'NaI(Tl)',L:29.1},{n:'BGO',L:10.4},{n:'LSO / LYSO',L:11.4},{n:'GSO',L:14.1}
+  ];
+  var pet=key==='pet', TM=pet?40:25, t=pet?20:9.5, sel=pet?2:0, id='s'+(++uid);
+  host.innerHTML='<div class="chips" role="group" aria-label="Materiál">'+cur.map(function(o,j){return '<button type="button" class="chip" data-i="'+j+'" aria-pressed="'+(j===sel)+'">'+o.n+'</button>'}).join('')+'</div>'+
+    '<svg class="chart" viewBox="0 0 560 270" role="img" aria-label="Podíl zastavených fotonů v závislosti na tloušťce krystalu"></svg>'+
+    '<label class="sl" for="'+id+'">Tloušťka krystalu<input id="'+id+'" type="range" min="1" max="'+TM+'" step="0.5" value="'+t+'"></label><p class="read" aria-live="polite"></p>';
+  var svg=$('svg',host), rd=$('.read',host), sl=$('input',host);
+  function draw(){
+    var Lf=48,R=530,Tp=18,B=222, X=function(x){return Lf+(R-Lf)*x/TM}, Y=function(a){return B-(B-Tp)*a/100};
+    var s='';
+    [0,25,50,75,100].forEach(function(a){s+='<line class="grid" x1="'+Lf+'" x2="'+R+'" y1="'+Y(a)+'" y2="'+Y(a)+'"/><text x="'+(Lf-8)+'" y="'+(Y(a)+4)+'" text-anchor="end">'+a+'</text>'});
+    s+='<text class="sub" x="'+Lf+'" y="10">zastavené fotony [%]</text>';
+    for(var x=0;x<=TM;x+=(pet?10:5)){s+='<line class="tick" x1="'+X(x)+'" x2="'+X(x)+'" y1="'+B+'" y2="'+(B+5)+'"/><text x="'+X(x)+'" y="'+(B+21)+'" text-anchor="middle">'+x+' mm</text>'}
+    var labs=[];
+    cur.forEach(function(o,j){
+      var p='';for(var n=0;n<=100;n++){var xx=TM*n/100;p+=(n?'L':'M')+X(xx).toFixed(1)+' '+Y(100*(1-Math.exp(-xx/o.L))).toFixed(1)+' '}
+      s+='<path class="'+(j===sel?'curve':'curve2')+'" d="'+p+'"/>';
+      if(j!==sel) labs.push({y:Y(100*(1-Math.exp(-TM/o.L)))-6,t:o.n});
+    });
+    labs.sort(function(a,b){return a.y-b.y});
+    labs.forEach(function(l,q){if(q>0&&l.y-labs[q-1].y<14) l.y=labs[q-1].y+14; s+='<text class="sub" x="'+(R-4)+'" y="'+l.y+'" text-anchor="end">'+l.t+'</text>'});
+    var o=cur[sel], eps=1-Math.exp(-t/o.L);
+    s+='<line class="vl" x1="'+X(t)+'" x2="'+X(t)+'" y1="'+Tp+'" y2="'+B+'"/><circle class="mk" cx="'+X(t)+'" cy="'+Y(100*eps)+'" r="6"/>';
+    var right=X(t)<R-120;
+    s+='<text class="lab" x="'+(right?X(t)+10:X(t)-10)+'" y="'+(Y(100*eps)+(eps>0.85?20:-10))+'" text-anchor="'+(right?'start':'end')+'">'+nf(100*eps,0)+' %</text>';
+    svg.innerHTML=s;
+    rd.innerHTML='<b>'+o.n+'</b>, tloušťka <b>'+nf(t,1)+' mm</b>: v krystalu interaguje <b>'+nf(100*eps,1)+' %</b> fotonů (délka útlumu ≈ '+nf(o.L,1)+' mm).'+
+      (pet?'<br>Aby byla zaznamenána koincidence, musí interagovat oba fotony: <b>'+nf(100*eps*eps,1)+' %</b>.':'')+
+      '<br><span class="muted">'+(pet?'Délky útlumu pro 511 keV jsou z tabulky ve zdrojích. Klinické krystaly mají kolem 20 mm.':'Délka útlumu NaI(Tl) pro 140 keV je orientační (odvozená z účinnosti ≈ 90 % pro 9,5 mm), pro 511 keV je ze zdroje.')+'</span>';
+  }
+  host.addEventListener('click',function(e){
+    var b=e.target.closest('.chip'); if(!b) return; sel=+b.dataset.i;
+    host.querySelectorAll('.chip').forEach(function(c){c.setAttribute('aria-pressed',String(c===b))}); draw();
+  });
+  sl.addEventListener('input',function(){t=+sl.value;draw()});
+  draw();
+}
+
+/* ---------- Řetěz fotonásobiče ---------- */
+function mountPmt(host,key){
+  var pet=key==='pet';
+  var OPT=pet?[
+    {n:'LYSO',E:511,LY:30},{n:'BGO',E:511,LY:9},{n:'NaI(Tl)',E:511,LY:38}
+  ]:[
+    {n:'Tc-99m (140 keV)',E:140,LY:38},{n:'I-123 (159 keV)',E:159,LY:38},{n:'Tl-201 (≈ 75 keV)',E:75,LY:38}
+  ];
+  var sel=0, nd=10, U=100, ida='p'+(++uid), idb='q'+(++uid), COL=0.7, QE=0.25;
+  host.innerHTML='<div class="chips" role="group" aria-label="Zdroj záblesku">'+OPT.map(function(o,j){return '<button type="button" class="chip" data-i="'+j+'" aria-pressed="'+(j===0)+'">'+o.n+'</button>'}).join('')+'</div>'+
+    '<label class="sl" for="'+ida+'">Počet dynod: <b class="va">10</b><input id="'+ida+'" type="range" min="6" max="12" step="1" value="10"></label>'+
+    '<label class="sl" for="'+idb+'">Napětí mezi dynodami: <b class="vb">100 V</b><input id="'+idb+'" type="range" min="60" max="140" step="5" value="100"></label>'+
+    '<div class="chain" aria-label="Počet elektronů po stupních"></div><p class="read" aria-live="polite"></p>';
+  var ch=$('.chain',host), rd=$('.read',host), s1=$('#'+ida,host), s2=$('#'+idb,host);
+  function row(l,v,cls){var w=Math.max(1,Math.min(100,100*Math.log10(Math.max(1,v))/12));return '<div class="row"><div class="lb"><span>'+l+'</span><b>'+sci(v)+'</b></div><div class="bar'+(cls?' '+cls:'')+'"><i style="width:'+w+'%"></i></div></div>'}
+  function draw(){
+    var o=OPT[sel], Nph=o.LY*o.E, Nc=Nph*COL, Ne=Nc*QE, d=4*Math.pow(U/100,0.7), G=Math.pow(d,nd), h='';
+    h+=row('Světelné fotony v krystalu ('+o.LY+' fot./keV × '+o.E+' keV)',Nph,'alt');
+    h+=row('Dopadnou na fotokatodu (předpoklad 70 %)',Nc,'alt');
+    h+=row('Fotoelektrony (kvantová účinnost předpoklad 25 %)',Ne,'alt');
+    for(var i=1;i<=nd;i++) h+=row('Po dynodě '+i,Ne*Math.pow(d,i));
+    ch.innerHTML=h;
+    var Q=Ne*G*1.602e-19, Q0=Ne*1.602e-19, er=2.355/Math.sqrt(Ne)*100;
+    $('.va',host).textContent=nd; $('.vb',host).textContent=U+' V';
+    rd.innerHTML='Násobení na jedné dynodě δ ≈ <b>'+nf(d,2)+'</b>, celkové zesílení δ<sup>n</sup> ≈ <b>'+sci(G)+'</b>.<br>'+
+      'Náboj na výstupu ≈ <b>'+sci(Q*1e12)+' pC</b>. Bez zesílení by byl jen '+sci(Q0)+' C, tedy pod úrovní šumu elektroniky.<br>'+
+      'Statistický limit energetického rozlišení z počtu fotoelektronů (2,355/√N): <b>'+nf(er,1)+' %</b>.<br>'+
+      '<span class="muted">Zjednodušený model: δ = 4·(U/100)<sup>0,7</sup>, sběr světla 70 %, kvantová účinnost 25 % jsou předpoklady pro ilustraci. Skutečné rozlišení je horší (ztráty, nerovnoměrnosti, šum).</span>';
+  }
+  host.addEventListener('click',function(e){
+    var b=e.target.closest('.chip'); if(!b) return; sel=+b.dataset.i;
+    host.querySelectorAll('.chip').forEach(function(c){c.setAttribute('aria-pressed',String(c===b))}); draw();
+  });
+  s1.addEventListener('input',function(){nd=+s1.value;draw()});
+  s2.addEventListener('input',function(){U=+s2.value;draw()});
+  draw();
+}
+
+/* ---------- Určení polohy: Angerova logika a blokový detektor ---------- */
+function mountLocate(host,key){
+  var pet=key==='pet', id='n'+(++uid);
+  var P=pet?[[25,25],[75,25],[25,75],[75,75]]:[[16.7,16.7],[50,16.7],[83.3,16.7],[16.7,50],[50,50],[83.3,50],[16.7,83.3],[50,83.3],[83.3,83.3]];
+  var sig=pet?40:16, rad=pet?26:16, SC=2.8, OX=10, OY=10, G=8, cell=12.5;
+  var N=pet?600:900, pt=pet?{x:(5+.5)*cell,y:(2+.5)*cell}:{x:30,y:62}, last=null, cloud=[], cal=[], acc=null;
+  function weights(x,y){var w=P.map(function(p){var dx=x-p[0],dy=y-p[1];return Math.exp(-(dx*dx+dy*dy)/(2*sig*sig))});var s=w.reduce(function(a,b){return a+b},0);return w.map(function(v){return v/s})}
+  function centroid(s){var t=0,cx=0,cy=0;for(var i=0;i<s.length;i++){t+=s[i];cx+=s[i]*P[i][0];cy+=s[i]*P[i][1]}return t>0?{x:cx/t,y:cy/t,t:t}:{x:50,y:50,t:0}}
+  function sample(x,y){var w=weights(x,y);return w.map(function(v){return poisson(N*v)})}
+  if(pet){for(var j=0;j<G;j++)for(var i=0;i<G;i++){var cx=(i+.5)*cell,cy=(j+.5)*cell,c=centroid(weights(cx,cy).map(function(v){return v*1000}));cal.push({i:i,j:j,x:c.x,y:c.y})}}
+  function decode(e){var b=0,bd=1e9;for(var k=0;k<cal.length;k++){var dx=e.x-cal[k].x,dy=e.y-cal[k].y,d=dx*dx+dy*dy;if(d<bd){bd=d;b=k}}return cal[b]}
+  host.innerHTML='<svg class="chart" viewBox="0 0 560 300" role="img" aria-label="Krystal s fotonásobiči: klikni na místo záblesku" style="cursor:crosshair;touch-action:manipulation"></svg>'+
+    '<label class="sl" for="'+id+'">Počet fotoelektronů v záblesku: <b class="vn"></b><input id="'+id+'" type="range" min="0" max="1000" value="0"></label>'+
+    '<button type="button" class="btn">Vyslat 100 událostí</button><p class="read" aria-live="polite"></p>';
+  var svg=$('svg',host), rd=$('.read',host), sl=$('input',host), vn=$('.vn',host);
+  var nmin=pet?60:150, nmax=pet?3000:3000;
+  function nFromSlider(v){return Math.round(nmin*Math.pow(nmax/nmin,v/1000))}
+  sl.value=Math.round(1000*Math.log(N/nmin)/Math.log(nmax/nmin));
+  function draw(){
+    vn.textContent=N;
+    var s='', X=function(u){return OX+u*SC}, Y=function(u){return OY+u*SC}, true_=last?last.true_:null;
+    s+='<rect x="'+OX+'" y="'+OY+'" width="'+(100*SC)+'" height="'+(100*SC)+'" rx="4" style="fill:var(--bg);stroke:var(--line);stroke-width:2"/>';
+    if(pet){for(var g=1;g<G;g++){s+='<line class="grid" x1="'+X(g*cell)+'" x2="'+X(g*cell)+'" y1="'+Y(0)+'" y2="'+Y(100)+'"/><line class="grid" y1="'+Y(g*cell)+'" y2="'+Y(g*cell)+'" x1="'+X(0)+'" x2="'+X(100)+'"/>'}}
+    var sg=last?last.s:null, mx=1;
+    if(sg) sg.forEach(function(v){if(v>mx)mx=v});
+    P.forEach(function(p,i){
+      var op=sg?0.12+0.5*sg[i]/mx:0.08;
+      s+='<circle cx="'+X(p[0])+'" cy="'+Y(p[1])+'" r="'+(rad*SC)+'" style="fill:var(--accent);fill-opacity:'+op.toFixed(2)+';stroke:var(--accent);stroke-opacity:.5;stroke-dasharray:4 4"/>';
+      s+='<text x="'+X(p[0])+'" y="'+(Y(p[1])+4)+'" text-anchor="middle" style="font-size:11px">'+(i+1)+'</text>';
+    });
+    if(pet){cal.forEach(function(c){s+='<circle cx="'+X(c.x)+'" cy="'+Y(c.y)+'" r="2.5" style="fill:var(--muted)" opacity=".7"/>'})}
+    cloud.forEach(function(c){s+='<circle cx="'+X(c.x)+'" cy="'+Y(c.y)+'" r="2.2" style="fill:var(--accent)" opacity=".45"/>'});
+    s+='<circle class="mk" cx="'+X(pt.x)+'" cy="'+Y(pt.y)+'" r="6"/>';
+    if(last){s+='<line x1="'+X(pt.x)+'" y1="'+Y(pt.y)+'" x2="'+X(last.est.x)+'" y2="'+Y(last.est.y)+'" style="stroke:var(--fg);stroke-width:1.5;stroke-dasharray:3 3"/>'+
+      '<path d="M'+(X(last.est.x)-6)+' '+(Y(last.est.y)-6)+'L'+(X(last.est.x)+6)+' '+(Y(last.est.y)+6)+'M'+(X(last.est.x)+6)+' '+(Y(last.est.y)-6)+'L'+(X(last.est.x)-6)+' '+(Y(last.est.y)+6)+'" style="stroke:var(--fg);stroke-width:2.5;fill:none"/>'}
+    if(pet&&last&&last.dec){var d=last.dec;s+='<rect x="'+X(d.i*cell)+'" y="'+Y(d.j*cell)+'" width="'+(cell*SC)+'" height="'+(cell*SC)+'" style="fill:none;stroke:'+(last.ok?'var(--ok)':'var(--bad)')+';stroke-width:3"/>'}
+    var bx=320, n=P.length, bh=n>4?20:34, by=30;
+    s+='<text x="'+bx+'" y="18" style="font-size:12px">signál fotodetektoru</text>';
+    var bm=Math.max(mx,1);
+    for(var i=0;i<n;i++){var v=sg?sg[i]:0, w=165*v/bm; s+='<text x="'+bx+'" y="'+(by+i*(bh+6)+bh/2+4)+'" style="font-size:11px">'+(i+1)+'</text><rect x="'+(bx+16)+'" y="'+(by+i*(bh+6))+'" width="'+Math.max(1,w)+'" height="'+bh+'" rx="3" style="fill:var(--accent)" opacity=".8"/><text x="'+(bx+22+w)+'" y="'+(by+i*(bh+6)+bh/2+4)+'" style="font-size:11px">'+v+'</text>'}
+    s+='<text x="'+bx+'" y="'+(by+n*(bh+6)+14)+'" style="font-size:12px;fill:var(--fg)">'+(sg?'součet = '+sg.reduce(function(a,b){return a+b},0):'klikni na krystal')+'</text>';
+    svg.innerHTML=s;
+    var h='';
+    if(!last) h='Klikni na krystal.';
+    else if(!pet){var er=Math.hypot(last.est.x-pt.x,last.est.y-pt.y)*2.28; h='Skutečné místo záblesku (modrý bod) a odhad z poměru signálů (křížek): chyba <b>'+nf(er,1)+' mm</b>.'}
+    else h='Skutečný krystal: <b>('+(Math.round(pt.x/cell-.5)+1)+', '+(Math.round(pt.y/cell-.5)+1)+')</b>, rozpoznaný krystal (rámeček): <b>('+(last.dec.i+1)+', '+(last.dec.j+1)+')</b> '+(last.ok?'<b style="color:var(--ok)">správně</b>':'<b style="color:var(--bad)">chybně</b>')+'.';
+    if(cloud.length){
+      if(!pet){var sx=0,sy=0;cloud.forEach(function(c){sx+=Math.pow(c.x-pt.x,2);sy+=Math.pow(c.y-pt.y,2)});var rms=Math.sqrt((sx+sy)/cloud.length)*2.28; h+='<br>Z '+cloud.length+' událostí je střední kvadratická chyba polohy <b>'+nf(rms,1)+' mm</b>. S větším počtem fotoelektronů se mrak zmenší.'}
+      else h+='<br>Správně zařazeno <b>'+nf(acc,0)+' %</b> ze '+cloud.length+' událostí. Čím víc fotoelektronů, tím lépe se body mapy oddělí.';
+    }
+    if(!pet) h+='<br><span class="muted">1 jednotka plochy ≈ 2,3 mm (fotonásobiče o průměru 76 mm). Okrajové body se zobrazí stažené ke středu, což se koriguje kalibrací.</span>';
+    else h+='<br><span class="muted">Šedé body jsou odhady polohy bez šumu pro jednotlivé krystaly: protože světlo sdílejí čtyři detektory, leží stažené ke středu, a proto je třeba mapa.</span>';
+    rd.innerHTML=h;
+  }
+  function one(){var s=sample(pt.x,pt.y),e=centroid(s);last={s:s,est:e,true_:pt};if(pet){var dc=decode(e);last.dec=dc;last.ok=(dc.i===Math.round(pt.x/cell-.5)&&dc.j===Math.round(pt.y/cell-.5))}}
+  svg.addEventListener('click',function(e){
+    var r=svg.getBoundingClientRect(), sx=560/r.width, u=((e.clientX-r.left)*sx-OX)/SC, v=((e.clientY-r.top)*sx-OY)/SC;
+    if(u<0||u>100||v<0||v>100) return;
+    pt=pet?{x:(Math.min(G-1,Math.floor(u/cell))+.5)*cell,y:(Math.min(G-1,Math.floor(v/cell))+.5)*cell}:{x:u,y:v};
+    cloud=[];acc=null;one();draw();
+  });
+  sl.addEventListener('input',function(){N=nFromSlider(+sl.value);cloud=[];acc=null;one();draw()});
+  $('.btn',host).addEventListener('click',function(){
+    cloud=[];var ok=0;
+    for(var i=0;i<100;i++){var s=sample(pt.x,pt.y),e=centroid(s);cloud.push(e);if(pet){var dc=decode(e);if(dc.i===Math.round(pt.x/cell-.5)&&dc.j===Math.round(pt.y/cell-.5))ok++}}
+    acc=ok; one(); draw();
+  });
+  one(); draw();
+}
+
+/* ---------- Scintilátor vs. polovodič ---------- */
+function mountDirect(host){
+  var E=140, id='e'+(++uid);
+  host.innerHTML='<label class="sl" for="'+id+'">Energie fotonu: <b class="ve"></b><input id="'+id+'" type="range" min="60" max="200" step="1" value="140"></label>'+
+    '<div class="tbl"><table class="dt"></table></div><p class="read" aria-live="polite"></p>';
+  var tb=$('.dt',host), rd=$('.read',host), sl=$('input',host);
+  function draw(){
+    $('.ve',host).textContent=E+' keV';
+    var ph=38*E, pe=ph*0.7*0.25, erN=2.355/Math.sqrt(pe)*100;
+    var pairs=E*1000/4.6, erC=2.355*Math.sqrt(0.1/pairs)*100;
+    tb.innerHTML='<thead><tr><th></th><th>NaI(Tl) + fotonásobič</th><th>CZT</th></tr></thead><tbody>'+
+     '<tr><td>1. krok</td><td>světelné fotony: '+sci(ph)+'</td><td>páry elektron–díra: '+sci(pairs)+'</td></tr>'+
+     '<tr><td>Nosiče signálu</td><td>fotoelektrony: '+sci(pe)+'</td><td>sebrané náboje: až '+sci(pairs)+'</td></tr>'+
+     '<tr><td>Statistický limit rozlišení</td><td>'+nf(erN,1)+' %</td><td>'+nf(erC,1)+' %</td></tr>'+
+     '<tr><td>Typické rozlišení při 140 keV</td><td>≈ 9–10 %</td><td>≈ 5–6 %</td></tr></tbody>';
+    rd.innerHTML='<span class="muted">Model: 38 fot./keV, sběr světla 70 %, kvantová účinnost 25 % (NaI(Tl)); 4,6 eV na pár a Fanův faktor 0,1 (CZT). Statistický limit je 2,355 × relativní odchylka. U CZT je skutečné rozlišení zhruba desetkrát horší než statistický limit, protože ho určuje sběr náboje (zachytávání děr) a šum elektroniky, ne počet nosičů.</span>';
+  }
+  sl.addEventListener('input',function(){E=+sl.value;draw()});
+  draw();
+}
+
+/* ---------- Kolimátor: rozlišení a citlivost ---------- */
+function mountColres(host){
+  var COL=[{n:'Vysoké rozlišení',d:1.11},{n:'Univerzální',d:1.40},{n:'Vysoká citlivost',d:2.54}], L=24, t=0.2, K=0.26, Ri=3.5;
+  var sel=1, b=100, id='k'+(++uid);
+  var Rc=function(d,z){return d*(L+z)/L}, Rs=function(d,z){return Math.sqrt(Math.pow(Rc(d,z),2)+Ri*Ri)}, gg=function(d){return Math.pow(K*(d/L)*(d/(d+t)),2)};
+  host.innerHTML='<div class="chips" role="group" aria-label="Typ kolimátoru">'+COL.map(function(o,j){return '<button type="button" class="chip" data-i="'+j+'" aria-pressed="'+(j===sel)+'">'+o.n+'</button>'}).join('')+'</div>'+
+    '<svg class="chart" viewBox="0 0 560 270" role="img" aria-label="Výsledné rozlišení v závislosti na vzdálenosti zdroje od kolimátoru"></svg>'+
+    '<label class="sl" for="'+id+'">Vzdálenost zdroje od kolimátoru: <b class="vb"></b><input id="'+id+'" type="range" min="0" max="300" step="5" value="100"></label>'+
+    '<div class="tbl"><table class="ct"></table></div><p class="read" aria-live="polite"></p>';
+  var svg=$('svg',host), sl=$('input',host), tb=$('.ct',host), rd=$('.read',host);
+  function draw(){
+    var Lf=48,R=530,Tp=18,B=222,TX=300,YM=40, X=function(x){return Lf+(R-Lf)*x/TX}, Y=function(v){return B-(B-Tp)*Math.min(v,YM)/YM};
+    var s='';
+    [0,10,20,30,40].forEach(function(v){s+='<line class="grid" x1="'+Lf+'" x2="'+R+'" y1="'+Y(v)+'" y2="'+Y(v)+'"/><text x="'+(Lf-8)+'" y="'+(Y(v)+4)+'" text-anchor="end">'+v+'</text>'});
+    s+='<text class="sub" x="'+Lf+'" y="10">výsledné rozlišení (FWHM) [mm]</text>';
+    for(var x=0;x<=TX;x+=50){s+='<line class="tick" x1="'+X(x)+'" x2="'+X(x)+'" y1="'+B+'" y2="'+(B+5)+'"/><text x="'+X(x)+'" y="'+(B+21)+'" text-anchor="middle">'+x+' mm</text>'}
+    var labs=[];
+    COL.forEach(function(o,j){
+      var p='';for(var n=0;n<=60;n++){var z=TX*n/60;p+=(n?'L':'M')+X(z).toFixed(1)+' '+Y(Rs(o.d,z)).toFixed(1)+' '}
+      s+='<path class="'+(j===sel?'curve':'curve2')+'" d="'+p+'"/>';
+      labs.push({y:Y(Rs(o.d,TX))-6,t:o.n});
+    });
+    labs.sort(function(a,c){return a.y-c.y});
+    labs.forEach(function(l,q){if(q>0&&l.y-labs[q-1].y<14) l.y=labs[q-1].y+14; s+='<text class="sub" x="'+(R-4)+'" y="'+l.y+'" text-anchor="end">'+l.t+'</text>'});
+    var o=COL[sel];
+    s+='<line class="vl" x1="'+X(b)+'" x2="'+X(b)+'" y1="'+Tp+'" y2="'+B+'"/><circle class="mk" cx="'+X(b)+'" cy="'+Y(Rs(o.d,b))+'" r="6"/>';
+    svg.innerHTML=s;
+    $('.vb',host).textContent=b+' mm';
+    var g0=gg(COL[1].d);
+    tb.innerHTML='<thead><tr><th>Kolimátor</th><th>Průměr otvoru</th><th>Rozlišení při '+b+' mm</th><th>Citlivost g</th><th>Vůči univerzálnímu</th></tr></thead><tbody>'+
+      COL.map(function(c,j){return '<tr'+(j===sel?' style="font-weight:600"':'')+'><td>'+c.n+'</td><td>'+nf(c.d,2)+' mm</td><td>'+nf(Rs(c.d,b),1)+' mm</td><td>'+nf(gg(c.d)*100,3)+' %</td><td>'+nf(gg(c.d)/g0,2)+' ×</td></tr>'}).join('')+'</tbody>';
+    rd.innerHTML='<b>'+o.n+'</b>, vzdálenost '+b+' mm: rozlišení kolimátoru R<sub>koll</sub> = d(L+b)/L = <b>'+nf(Rc(o.d,b),1)+' mm</b>, s vnitřním rozlišením detektoru ('+nf(Ri,1)+' mm) výsledně <b>'+nf(Rs(o.d,b),1)+' mm</b>. Citlivost g ≈ <b>'+nf(gg(o.d)*100,3)+' %</b> ('+nf(gg(o.d)*1e4,1)+' × 10<sup>−4</sup>).<br><span class="muted">Parametry: délka otvorů L = 24 mm, septa t = 0,2 mm, K = 0,26 (šestiúhelníkové otvory), vnitřní rozlišení 3,5 mm je orientační. Rozměry a vzorce jsou ze zdroje uvedeného dole.</span>';
+  }
+  host.addEventListener('click',function(e){var c=e.target.closest('.chip');if(!c)return;sel=+c.dataset.i;host.querySelectorAll('.chip').forEach(function(x){x.setAttribute('aria-pressed',String(x===c))});draw()});
+  sl.addEventListener('input',function(){b=+sl.value;draw()});
+  draw();
+}
+
+/* ---------- Comptonův rozptyl a energetické okno ---------- */
+function mountCompton(host,key){
+  var ES=[{n:'140 keV (SPECT, Tc-99m)',E:140},{n:'511 keV (PET)',E:511}], sel=key==='pet'?1:0, th=45, w=key==='pet'?15:10, ida='c'+(++uid), idb='d'+(++uid);
+  var Ep=function(E,deg){return E/(1+E/511*(1-Math.cos(deg*Math.PI/180)))};
+  var thc=function(E,wp){var lo=E*(1-wp/100),x=511*(E/lo-1)/E,c=1-x;return c<-1?180:Math.acos(c)*180/Math.PI};
+  host.innerHTML='<div class="chips" role="group" aria-label="Energie fotonu">'+ES.map(function(o,j){return '<button type="button" class="chip" data-i="'+j+'" aria-pressed="'+(j===sel)+'">'+o.n+'</button>'}).join('')+'</div>'+
+    '<svg class="chart" viewBox="0 0 560 270" role="img" aria-label="Energie rozptýleného fotonu v závislosti na úhlu rozptylu"></svg>'+
+    '<label class="sl" for="'+ida+'">Úhel rozptylu: <b class="va"></b><input id="'+ida+'" type="range" min="0" max="180" step="1" value="'+th+'"></label>'+
+    '<label class="sl" for="'+idb+'">Polovina šířky energetického okna: ± <b class="vb"></b><input id="'+idb+'" type="range" min="5" max="30" step="1" value="'+w+'"></label><p class="read" aria-live="polite"></p>';
+  var svg=$('svg',host), rd=$('.read',host), s1=$('#'+ida,host), s2=$('#'+idb,host);
+  function draw(){
+    var Lf=48,R=530,Tp=18,B=222,YL=30, X=function(a){return Lf+(R-Lf)*a/180}, Y=function(v){return B-(B-Tp)*(v-YL)/(100-YL)};
+    var s='', E=ES[sel].E;
+    [30,40,50,60,70,80,90,100].forEach(function(v){s+='<line class="grid" x1="'+Lf+'" x2="'+R+'" y1="'+Y(v)+'" y2="'+Y(v)+'"/><text x="'+(Lf-8)+'" y="'+(Y(v)+4)+'" text-anchor="end">'+v+'</text>'});
+    s+='<text class="sub" x="'+Lf+'" y="10">energie po rozptylu [% původní]</text>';
+    for(var a=0;a<=180;a+=30){s+='<line class="tick" x1="'+X(a)+'" x2="'+X(a)+'" y1="'+B+'" y2="'+(B+5)+'"/><text x="'+X(a)+'" y="'+(B+21)+'" text-anchor="middle">'+a+'°</text>'}
+    var lo=100-w;
+    s+='<rect x="'+Lf+'" y="'+Y(100)+'" width="'+(R-Lf)+'" height="'+(Y(lo)-Y(100))+'" style="fill:var(--accent);fill-opacity:.12"/><line class="vl" x1="'+Lf+'" x2="'+R+'" y1="'+Y(lo)+'" y2="'+Y(lo)+'"/><text class="sub" x="'+(R-4)+'" y="'+(Y(lo)-6)+'" text-anchor="end">dolní hrana okna</text>';
+    ES.forEach(function(o,j){
+      var p='';for(var n=0;n<=90;n++){var ang=180*n/90;p+=(n?'L':'M')+X(ang).toFixed(1)+' '+Y(100*Ep(o.E,ang)/o.E).toFixed(1)+' '}
+      s+='<path class="'+(j===sel?'curve':'curve2')+'" d="'+p+'"/>';
+      s+='<text class="sub" x="'+(X(172))+'" y="'+(Y(100*Ep(o.E,180)/o.E)-8)+'" text-anchor="end">'+o.E+' keV</text>';
+    });
+    var ev=Ep(E,th), pct=100*ev/E, ok=pct>=lo;
+    s+='<line class="vl" x1="'+X(th)+'" x2="'+X(th)+'" y1="'+Tp+'" y2="'+B+'"/><circle class="mk" cx="'+X(th)+'" cy="'+Y(pct)+'" r="6" style="fill:'+(ok?'var(--accent)':'var(--muted)')+'"/>';
+    svg.innerHTML=s;
+    $('.va',host).textContent=th+'°'; $('.vb',host).textContent=w+' %';
+    var tc=thc(E,w);
+    rd.innerHTML='Foton '+E+' keV rozptýlený o <b>'+th+'°</b> má energii <b>'+nf(ev,1)+' keV</b> (ztratil '+nf(100-pct,1)+' %). Okno '+nf(E*(1-w/100),0)+'–'+nf(E*(1+w/100),0)+' keV ho <b>'+(ok?'propustí, takže se započítá jako nerozptýlený':'vyřadí')+'</b>.<br>'+
+      'Rozptyl do úhlu asi <b>'+(tc>=180?'180':nf(tc,0))+'°</b> oknem projde. Foton, který se rozptýlil jen málo, ztratí málo energie a od nerozptýleného se nedá odlišit.<br><span class="muted">Vzorec: E′ = E / (1 + (E/511 keV)(1 − cos θ)). Pro Tc-99m (okno ±10 %) vychází ≈ 54°, pro ±15 % přibližně 69°. Pro 511 keV s oknem ±15 % jen ≈ 35° (hodnoty ±15 % odpovídají zdroji).</span>';
+  }
+  host.addEventListener('click',function(e){var c=e.target.closest('.chip');if(!c)return;sel=+c.dataset.i;host.querySelectorAll('.chip').forEach(function(x){x.setAttribute('aria-pressed',String(x===c))});draw()});
+  s1.addEventListener('input',function(){th=+s1.value;draw()});
+  s2.addEventListener('input',function(){w=+s2.value;draw()});
+  draw();
+}
+
+/* ---------- Spektrum a energetické okno ---------- */
+function mountSpectrum(host,key){
+  var pet=key==='pet', E=pet?511:140, rho=pet?0.4:0.5, id='sp'+(++uid), sel=0, w=pet?15:10;
+  var OPT=pet?[{n:'LYSO (≈ 10 %)',er:10},{n:'BGO (≈ 12 %)',er:12}]:[{n:'NaI(Tl) (≈ 9,5 %)',er:9.5},{n:'CZT (≈ 5,5 %)',er:5.5}];
+  var emin=E/(1+2*E/511), NG=240, x0=0.45*E, x1=1.25*E, dx=(x1-x0)/NG;
+  function model(er){
+    var sg=er/100*E/2.355, pk=[], sc=[], tot=[], i, j, e;
+    var ramp=function(v){return v>=emin&&v<=E?(v-emin)/(E-emin):0}, norm=rho/((E-emin)/2);
+    for(i=0;i<=NG;i++){
+      e=x0+i*dx; pk.push(Math.exp(-(e-E)*(e-E)/(2*sg*sg))/(sg*Math.sqrt(2*Math.PI)));
+      var a=0; for(j=0;j<=NG*2;j++){var ep=emin+(E-emin)*j/(NG*2); a+=ramp(ep)*Math.exp(-(e-ep)*(e-ep)/(2*sg*sg))/(sg*Math.sqrt(2*Math.PI))}
+      sc.push(a*norm*(E-emin)/(NG*2));
+    }
+    return {pk:pk,sc:sc};
+  }
+  var M=OPT.map(function(o){return model(o.er)});
+  host.innerHTML='<div class="chips" role="group" aria-label="Detektor">'+OPT.map(function(o,j){return '<button type="button" class="chip" data-i="'+j+'" aria-pressed="'+(j===0)+'">'+o.n+'</button>'}).join('')+'</div>'+
+    '<svg class="chart" viewBox="0 0 560 270" role="img" aria-label="Energetické spektrum s fotopíkem a rozptýlenými fotony a energetickým oknem"></svg>'+
+    '<label class="sl" for="'+id+'">Polovina šířky okna: ± <b class="vw"></b><input id="'+id+'" type="range" min="3" max="30" step="1" value="'+w+'"></label>'+
+    '<div class="tbl"><table class="st"></table></div><p class="read" aria-live="polite"></p>';
+  var svg=$('svg',host), sl=$('input',host), tb=$('.st',host), rd=$('.read',host);
+  function win(m){
+    var lo=E*(1-w/100), hi=E*(1+w/100), p=0, s=0;
+    for(var i=0;i<=NG;i++){var e=x0+i*dx; if(e>=lo&&e<=hi){p+=m.pk[i]*dx;s+=m.sc[i]*dx}}
+    return {p:p,s:s};
+  }
+  function draw(){
+    var Lf=48,R=530,Tp=18,B=222, X=function(e){return Lf+(R-Lf)*(e-x0)/(x1-x0)};
+    var m=M[sel], mx=0, i;
+    for(i=0;i<=NG;i++){var tv=m.pk[i]+m.sc[i];if(tv>mx)mx=tv}
+    var Y=function(v){return B-(B-Tp-8)*v/mx};
+    var s='';
+    var step=pet?100:20;
+    for(var e=Math.ceil(x0/step)*step;e<=x1;e+=step){s+='<line class="tick" x1="'+X(e)+'" x2="'+X(e)+'" y1="'+B+'" y2="'+(B+5)+'"/><text x="'+X(e)+'" y="'+(B+21)+'" text-anchor="middle">'+e+'</text>'}
+    s+='<line class="grid" x1="'+Lf+'" x2="'+R+'" y1="'+B+'" y2="'+B+'"/><text class="sub" x="'+R+'" y="'+(B+36)+'" text-anchor="end">energie [keV]</text><text class="sub" x="'+Lf+'" y="10">počet zaznamenaných fotonů</text>';
+    var lo=E*(1-w/100), hi=E*(1+w/100);
+    s+='<rect x="'+X(lo)+'" y="'+(Tp)+'" width="'+(X(hi)-X(lo))+'" height="'+(B-Tp)+'" style="fill:var(--accent);fill-opacity:.12"/><line class="vl" x1="'+X(lo)+'" x2="'+X(lo)+'" y1="'+Tp+'" y2="'+B+'"/><line class="vl" x1="'+X(hi)+'" x2="'+X(hi)+'" y1="'+Tp+'" y2="'+B+'"/>';
+    var p='',q='',r='';
+    for(i=0;i<=NG;i++){var ee=x0+i*dx; p+=(i?'L':'M')+X(ee).toFixed(1)+' '+Y(m.pk[i]+m.sc[i]).toFixed(1)+' '; q+=(i?'L':'M')+X(ee).toFixed(1)+' '+Y(m.sc[i]).toFixed(1)+' '}
+    s+='<path class="curve2" d="'+q+'"/><path class="curve" d="'+p+'"/>';
+    s+='<text class="leg" x="'+(X(E)+8)+'" y="'+(Tp+14)+'">fotopík</text><text class="sub" x="'+(X(emin+(E-emin)*0.45))+'" y="'+(Y(m.sc[Math.round((emin+(E-emin)*0.45-x0)/dx)])-8)+'" text-anchor="middle">rozptýlené fotony</text>';
+    svg.innerHTML=s;
+    $('.vw',host).textContent=w+' %';
+    tb.innerHTML='<thead><tr><th>Detektor</th><th>Primární fotony v okně</th><th>Rozptýlené v okně</th><th>Podíl rozptýlených v obraze</th></tr></thead><tbody>'+
+      OPT.map(function(o,j){var a=win(M[j]),sf=a.s/(a.p+a.s);return '<tr'+(j===sel?' style="font-weight:600"':'')+'><td>'+o.n+'</td><td>'+nf(100*a.p,1)+' %</td><td>'+nf(100*a.s/rho,1)+' %</td><td>'+nf(100*sf,1)+' %</td></tr>'}).join('')+'</tbody>';
+    rd.innerHTML='Okno ± '+w+' % ('+nf(lo,0)+'–'+nf(hi,0)+' keV). Užší okno vyřadí víc rozptýlených fotonů, ale u detektoru se širokým fotopíkem začne vyřazovat i primární fotony.<br><span class="muted">Ilustrační model: před oknem je rozptýlených fotonů '+nf(rho*100,0)+' % z počtu primárních, spektrum rozptýlených fotonů roste lineárně od nejnižší možné energie po jednom rozptylu ('+nf(emin,0)+' keV) k energii fotopíku a je rozmazáno rozlišením detektoru. Skutečné spektrum závisí na pacientovi a geometrii. Rozlišení: '+(pet?'LYSO a BGO podle tabulky ve zdrojích (téma Detekce).':'NaI(Tl) ≈ 9,5 % a CZT ≈ 5,5 % jsou orientační hodnoty.')+'</span>';
+  }
+  host.addEventListener('click',function(e){var c=e.target.closest('.chip');if(!c)return;sel=+c.dataset.i;host.querySelectorAll('.chip').forEach(function(x){x.setAttribute('aria-pressed',String(x===c))});draw()});
+  sl.addEventListener('input',function(){w=+sl.value;draw()});
+  draw();
+}
+
+/* ---------- Typy koincidencí ---------- */
+function mountCoinc(host){
+  var sel=0, NAMES=['Pravá','Rozptýlená','Náhodná'];
+  host.innerHTML='<div class="chips" role="group" aria-label="Typ koincidence">'+NAMES.map(function(n,j){return '<button type="button" class="chip" data-i="'+j+'" aria-pressed="'+(j===0)+'">'+n+'</button>'}).join('')+'</div>'+
+    '<svg class="chart" viewBox="0 0 560 270" role="img" aria-label="Prstenec detektorů se třemi typy koincidencí"></svg><p class="read" aria-live="polite"></p>';
+  var svg=$('svg',host), rd=$('.read',host), CX=280, CY=135, RR=112;
+  function ring(p,deg){var a=deg*Math.PI/180,ux=Math.cos(a),uy=Math.sin(a),dx=p.x-CX,dy=p.y-CY,b=dx*ux+dy*uy,c=dx*dx+dy*dy-RR*RR,t=-b+Math.sqrt(b*b-c);return {x:p.x+ux*t,y:p.y+uy*t,a:Math.atan2(p.y+uy*t-CY,p.x+ux*t-CX)}}
+  function det(a,on,bad){var x=CX+(RR+7)*Math.cos(a),y=CY+(RR+7)*Math.sin(a);return '<rect x="'+(x-8)+'" y="'+(y-8)+'" width="16" height="16" rx="3" transform="rotate('+(a*180/Math.PI+90)+' '+x+' '+y+')" style="fill:'+(on?(bad?'var(--bad)':'var(--accent)'):'var(--line)')+'"/>'}
+  function line(a,b,cls){return '<line x1="'+a.x+'" y1="'+a.y+'" x2="'+b.x+'" y2="'+b.y+'" style="'+cls+'"/>'}
+  function draw(){
+    var s='<circle cx="'+CX+'" cy="'+CY+'" r="'+RR+'" style="fill:none;stroke:var(--line);stroke-width:1"/><ellipse class="body" cx="'+CX+'" cy="'+CY+'" rx="80" ry="62"/>';
+    var lit=[],txt='',FG='stroke:var(--fg);stroke-width:2',AC='stroke:var(--accent);stroke-width:2.5',BAD='stroke:var(--bad);stroke-width:2;stroke-dasharray:6 4';
+    var X=function(c){return '<path d="M'+(c.x-5)+' '+(c.y-5)+'L'+(c.x+5)+' '+(c.y+5)+'M'+(c.x+5)+' '+(c.y-5)+'L'+(c.x-5)+' '+(c.y+5)+'" style="stroke:var(--muted);stroke-width:2;fill:none"/>'};
+    if(sel===0){
+      var S={x:CX-12,y:CY-8}, a=ring(S,25), b=ring(S,205);
+      s+=line(S,a,AC)+line(S,b,AC)+'<circle class="src" cx="'+S.x+'" cy="'+S.y+'" r="6"/>';
+      lit=[[a.a,0],[b.a,0]];
+      txt='<b>Pravá koincidence.</b> Oba fotony z jedné anihilace doletí k protilehlým detektorům bez rozptylu. Přímka mezi detektory (LOR) prochází zdrojem. Toto je užitečný signál (T).';
+    }else if(sel===1){
+      var S2={x:CX-12,y:CY-8}, a2=ring(S2,25), Q={x:S2.x+62*Math.cos(205*Math.PI/180),y:S2.y+62*Math.sin(205*Math.PI/180)}, b2=ring(Q,245);
+      s+=line(S2,a2,AC)+line(S2,Q,AC)+line(Q,b2,AC)+'<circle class="src" cx="'+S2.x+'" cy="'+S2.y+'" r="6"/><circle cx="'+Q.x+'" cy="'+Q.y+'" r="4" style="fill:var(--fg)"/>';
+      s+=line(a2,b2,BAD);
+      lit=[[a2.a,1],[b2.a,1]];
+      txt='<b>Rozptýlená koincidence.</b> Jeden foton se v těle rozptýlil (černý bod) a doletěl do jiného detektoru. Pár se zaznamená, ale přímka mezi detektory (čárkovaně) zdrojem neprochází. Zhoršuje kontrast. Částečně ji omezí energetické okno.';
+    }else{
+      var A1={x:CX-48,y:CY-22}, A2={x:CX+44,y:CY+26}, p1=ring(A1,60), p2=ring(A2,200);
+      var o1={x:A1.x+Math.cos(240*Math.PI/180)*34,y:A1.y+Math.sin(240*Math.PI/180)*34}, o2={x:A2.x+Math.cos(20*Math.PI/180)*34,y:A2.y+Math.sin(20*Math.PI/180)*34};
+      s+=line(A1,p1,AC)+line(A2,p2,AC)+line(A1,o1,'stroke:var(--muted);stroke-width:2;stroke-dasharray:2 3')+line(A2,o2,'stroke:var(--muted);stroke-width:2;stroke-dasharray:2 3')+X(o1)+X(o2);
+      s+='<circle class="src" cx="'+A1.x+'" cy="'+A1.y+'" r="6"/><circle class="src" cx="'+A2.x+'" cy="'+A2.y+'" r="6"/>'+line(p1,p2,BAD);
+      lit=[[p1.a,1],[p2.a,1]];
+      txt='<b>Náhodná koincidence.</b> Dvě různé anihilace. U každé se zachytil jen jeden foton, druhý unikl nebo byl pohlcen (šedý křížek). Dva fotony z různých anihilací dorazily do koincidenčního okna, a vznikla přímka (čárkovaně), která nemá žádný vztah ke zdroji. Počet takových událostí roste s druhou mocninou aktivity.';
+    }
+    for(var i=0;i<32;i++){s+=det(i*Math.PI/16,false)}
+    lit.forEach(function(l){s+=det(l[0],true,l[1])});
+    svg.innerHTML=s; rd.innerHTML=txt;
+  }
+  host.addEventListener('click',function(e){var c=e.target.closest('.chip');if(!c)return;sel=+c.dataset.i;host.querySelectorAll('.chip').forEach(function(x){x.setAttribute('aria-pressed',String(x===c))});draw()});
+  draw();
+}
+
+/* ---------- Náhodné koincidence a NEC ---------- */
+function mountRand(host){
+  var WIN=[{n:'2 ns',w:2},{n:'4,5 ns',w:4.5},{n:'9 ns',w:9},{n:'12 ns',w:12}], sel=1, A=300, id='ra'+(++uid);
+  var T=function(a){return a}, S=function(a){return 0.35*a}, Rn=function(a,w){return 0.0009*(w/4.5)*a*a}, NEC=function(a,w){var t=T(a);if(!t)return 0;return t*t/(t+S(a)+2*Rn(a,w))};
+  host.innerHTML='<div class="chips" role="group" aria-label="Koincidenční okno">'+WIN.map(function(o,j){return '<button type="button" class="chip" data-i="'+j+'" aria-pressed="'+(j===sel)+'">okno '+o.n+'</button>'}).join('')+'</div>'+
+    '<svg class="chart" viewBox="0 0 560 270" role="img" aria-label="Pravé a náhodné koincidence v závislosti na aktivitě"></svg>'+
+    '<label class="sl" for="'+id+'">Aktivita ve zorném poli: <b class="va"></b><input id="'+id+'" type="range" min="10" max="800" step="10" value="300"></label><p class="read" aria-live="polite"></p>';
+  var svg=$('svg',host), sl=$('input',host), rd=$('.read',host);
+  function draw(){
+    var w=WIN[sel].w, Lf=48,R=530,Tp=18,B=222,TX=800,YM=800, X=function(x){return Lf+(R-Lf)*x/TX}, Y=function(v){return B-(B-Tp)*Math.min(v,YM)/YM};
+    var s='';
+    [0,200,400,600,800].forEach(function(v){s+='<line class="grid" x1="'+Lf+'" x2="'+R+'" y1="'+Y(v)+'" y2="'+Y(v)+'"/><text x="'+(Lf-8)+'" y="'+(Y(v)+4)+'" text-anchor="end">'+v+'</text>'});
+    s+='<text class="sub" x="'+Lf+'" y="10">četnost [kcps]</text>';
+    for(var x=0;x<=TX;x+=200){s+='<line class="tick" x1="'+X(x)+'" x2="'+X(x)+'" y1="'+B+'" y2="'+(B+5)+'"/><text x="'+X(x)+'" y="'+(B+21)+'" text-anchor="middle">'+x+' MBq</text>'}
+    function path(f,cls,extra){var p='';for(var n=0;n<=80;n++){var a=TX*n/80;p+=(n?'L':'M')+X(a).toFixed(1)+' '+Y(f(a)).toFixed(1)+' '}return '<path class="'+cls+'" d="'+p+'"'+(extra||'')+'/>'}
+    s+=path(T,'curve2')+path(function(a){return Rn(a,w)},'curve')+path(function(a){return NEC(a,w)},'',' style="fill:none;stroke:var(--fg);stroke-width:2.5"');
+    s+='<text class="sub" x="'+(X(790))+'" y="'+(Y(T(790))-8)+'" text-anchor="end">pravé T</text>';
+    s+='<text class="leg" x="'+(X(790))+'" y="'+(Y(Math.min(YM,Rn(790,w)))+(Rn(790,w)>YM?16:-8))+'" text-anchor="end">náhodné R</text>';
+    s+='<text class="lab" x="'+(X(790))+'" y="'+(Y(NEC(790,w))+16)+'" text-anchor="end">NEC</text>';
+    s+='<line class="vl" x1="'+X(A)+'" x2="'+X(A)+'" y1="'+Tp+'" y2="'+B+'"/><circle class="mk" cx="'+X(A)+'" cy="'+Y(Rn(A,w))+'" r="5"/><circle class="mk2" cx="'+X(A)+'" cy="'+Y(T(A))+'" r="5"/>';
+    svg.innerHTML=s;
+    $('.va',host).textContent=A+' MBq';
+    var t=T(A), sc=S(A), r=Rn(A,w), nec=NEC(A,w);
+    rd.innerHTML='Při <b>'+A+' MBq</b> a okně '+WIN[sel].n+': pravé <b>'+nf(t,0)+'</b>, rozptýlené '+nf(sc,0)+', náhodné <b>'+nf(r,0)+'</b> kcps. Náhodné tvoří <b>'+nf(100*r/(t+sc+r),1)+' %</b> všech zaznamenaných koincidencí. NEC = T²/(T + S + 2R) = <b>'+nf(nec,0)+' kcps</b>, tedy '+nf(100*nec/t,0)+' % pravých.<br><span class="muted">Ilustrační konstanty: T roste lineárně s aktivitou, R = 2τ·S₁·S₂ roste s jejím druhým mocninou a úměrně šířce okna. Skutečný NEC má navíc maximum, protože na vysokých četnostech působí mrtvá doba (tu model neobsahuje).</span>';
+  }
+  host.addEventListener('click',function(e){var c=e.target.closest('.chip');if(!c)return;sel=+c.dataset.i;host.querySelectorAll('.chip').forEach(function(x){x.setAttribute('aria-pressed',String(x===c))});draw()});
+  sl.addEventListener('input',function(){A=+sl.value;draw()});
+  draw();
+}
+
+/* ---------- Time-of-flight ---------- */
+function mountTof(host){
+  var OPT=[{n:'bez TOF',t:0},{n:'600 ps',t:600},{n:'400 ps',t:400},{n:'215 ps',t:215},{n:'100 ps',t:100}], sel=2, D=40, id='tf'+(++uid);
+  host.innerHTML='<div class="chips" role="group" aria-label="Časové rozlišení">'+OPT.map(function(o,j){return '<button type="button" class="chip" data-i="'+j+'" aria-pressed="'+(j===sel)+'">'+o.n+'</button>'}).join('')+'</div>'+
+    '<svg class="chart" viewBox="0 0 560 210" role="img" aria-label="Rozdělení pravděpodobnosti polohy anihilace podél přímky LOR"></svg>'+
+    '<label class="sl" for="'+id+'">Průměr těla (délka LOR v těle): <b class="vd"></b><input id="'+id+'" type="range" min="20" max="50" step="1" value="40"></label><p class="read" aria-live="polite"></p>';
+  var svg=$('svg',host), sl=$('input',host), rd=$('.read',host), PX=8, CX=280, CY=120;
+  function draw(){
+    var o=OPT[sel], half=D*PX/2, x0=CX+3*PX, s='';
+    s+='<ellipse class="body" cx="'+CX+'" cy="'+CY+'" rx="'+half+'" ry="60"/>';
+    s+='<line x1="24" y1="'+CY+'" x2="536" y2="'+CY+'" style="stroke:var(--muted);stroke-width:1.5"/>';
+    s+='<rect x="8" y="'+(CY-34)+'" width="16" height="68" rx="3" style="fill:var(--muted)" opacity=".5"/><rect x="536" y="'+(CY-34)+'" width="16" height="68" rx="3" style="fill:var(--muted)" opacity=".5"/>';
+    s+='<text x="16" y="'+(CY+54)+'" text-anchor="middle" style="font-size:11px">detektor</text><text x="544" y="'+(CY+54)+'" text-anchor="middle" style="font-size:11px">detektor</text>';
+    var dxm=o.t?0.1499*o.t:0, h0=14, d='';
+    if(!o.t){d='M'+(CX-half)+' '+CY+'L'+(CX-half)+' '+(CY-h0)+'L'+(CX+half)+' '+(CY-h0)+'L'+(CX+half)+' '+CY+'Z'}
+    else{
+      var sg=dxm/10/2.355, sgp=sg*PX, pk=Math.min(100,h0*D/(sg*2.5066));
+      d='M'+(CX-half)+' '+CY;
+      for(var x=CX-half;x<=CX+half;x+=2){var h=pk*Math.exp(-Math.pow(x-x0,2)/(2*sgp*sgp));d+='L'+x+' '+(CY-h).toFixed(1)}
+      d+='L'+(CX+half)+' '+CY+'Z';
+    }
+    s+='<path d="'+d+'" style="fill:var(--accent);fill-opacity:.28;stroke:var(--accent);stroke-width:2"/>';
+    s+='<circle class="mk" cx="'+x0+'" cy="'+CY+'" r="6"/><text x="'+x0+'" y="'+(CY+22)+'" text-anchor="middle" style="font-size:11px">skutečné místo anihilace</text>';
+    svg.innerHTML=s;
+    $('.vd',host).textContent=D+' cm';
+    var h='';
+    if(!o.t) h='<b>Bez TOF</b> je známa jen přímka LOR. Anihilace mohla proběhnout kdekoli podél ní, rekonstrukce proto rozdělí signál rovnoměrně přes celý průchod tělem ('+D+' cm).';
+    else{
+      var dx=0.1499*o.t/10, gain=D/dx;
+      h='Časové rozlišení <b>'+o.t+' ps</b> určí polohu podél LOR s nejistotou Δx = c·Δt/2 ≈ <b>'+nf(dx,1)+' cm</b>.<br>'+(dx>=D?'Nejistota je větší než průměr těla, takže TOF nic nepřinese.':'Orientační zisk citlivosti ≈ D/Δx = <b>'+nf(gain,1)+' ×</b>, zisk poměru signál/šum ≈ √(D/Δx) = <b>'+nf(Math.sqrt(gain),1)+' ×</b>.');
+    }
+    rd.innerHTML=h+'<br><span class="muted">Komerční TOF přístroje mívají 400–550 ps (starší), novější SiPM systémy kolem 200–300 ps. Vzorce platí pro jednoduchý případ rovnoměrné aktivity a analytickou rekonstrukci. U iterativní rekonstrukce je zisk závislý na úloze a menší.</span>';
+  }
+  host.addEventListener('click',function(e){var c=e.target.closest('.chip');if(!c)return;sel=+c.dataset.i;host.querySelectorAll('.chip').forEach(function(x){x.setAttribute('aria-pressed',String(x===c))});draw()});
+  sl.addEventListener('input',function(){D=+sl.value;draw()});
+  draw();
+}
+
+/* ---------- Rozlišení PET ---------- */
+function mountPetRes(host){
+  var ISO=[{n:'F-18',s:0.54},{n:'Ga-68',s:1.35},{n:'Rb-82',s:2.60}], sel=0, d=4, DR=83, bd=0, ia='r'+(++uid), ib='r'+(++uid), ic='r'+(++uid);
+  host.innerHTML='<div class="chips" role="group" aria-label="Radionuklid">'+ISO.map(function(o,j){return '<button type="button" class="chip" data-i="'+j+'" aria-pressed="'+(j===sel)+'">'+o.n+'</button>'}).join('')+'</div>'+
+    '<label class="sl" for="'+ia+'">Šířka krystalu: <b class="va"></b><input id="'+ia+'" type="range" min="1.5" max="6" step="0.5" value="4"></label>'+
+    '<label class="sl" for="'+ib+'">Průměr prstence: <b class="vb"></b><input id="'+ib+'" type="range" min="40" max="100" step="1" value="83"></label>'+
+    '<label class="sl" for="'+ic+'">Chyba určení zasaženého krystalu: <b class="vc"></b><input id="'+ic+'" type="range" min="0" max="3" step="0.1" value="0"></label>'+
+    '<div class="chain"></div><p class="read" aria-live="polite"></p>';
+  var ch=$('.chain',host), rd=$('.read',host), sa=$('#'+ia,host), sb=$('#'+ib,host), sc=$('#'+ic,host);
+  function row(l,v,mx,cls){return '<div class="row"><div class="lb"><span>'+l+'</span><b>'+nf(v,2)+' mm</b></div><div class="bar'+(cls?' '+cls:'')+'"><i style="width:'+Math.min(100,100*v/mx)+'%"></i></div></div>'}
+  function draw(){
+    var o=ISO[sel], c1=d/2, c2=o.s, c3=0.0022*DR*10, c4=bd, tot=1.25*Math.sqrt(c1*c1+c2*c2+c3*c3+c4*c4), mx=Math.max(4,c1,c2,c3,c4,tot);
+    ch.innerHTML=row('Šířka krystalu / 2',c1,mx)+row('Dosah pozitronu ('+o.n+')',c2,mx)+row('Nekolinearita 0,0022 · D',c3,mx)+row('Určení krystalu',c4,mx)+row('Výsledné rozlišení = 1,25 · √(součet druhých mocnin)',tot,mx,'alt');
+    $('.va',host).textContent=nf(d,1)+' mm'; $('.vb',host).textContent=DR+' cm'; $('.vc',host).textContent=nf(bd,1)+' mm';
+    rd.innerHTML='Výsledné rozlišení v modelu <b>'+nf(tot,1)+' mm</b>. Největší příspěvek: <b>'+(function(){var a=[[c1,'šířka krystalu'],[c2,'dosah pozitronu'],[c3,'nekolinearita'],[c4,'určení krystalu']];a.sort(function(x,y){return y[0]-x[0]});return a[0][1]})()+'</b>.<br><span class="muted">Vzorec a hodnoty dosahu (F-18 0,54 mm, Ga-68 1,35 mm, Rb-82 2,60 mm) jsou ze zdroje. Klinický přístroj má šířku krystalu zhruba 4 mm a prstenec 83 cm. Další příspěvky (hloubka interakce, rekonstrukce) zde nejsou.</span>';
+  }
+  host.addEventListener('click',function(e){var c=e.target.closest('.chip');if(!c)return;sel=+c.dataset.i;host.querySelectorAll('.chip').forEach(function(x){x.setAttribute('aria-pressed',String(x===c))});draw()});
+  sa.addEventListener('input',function(){d=+sa.value;draw()}); sb.addEventListener('input',function(){DR=+sb.value;draw()}); sc.addEventListener('input',function(){bd=+sc.value;draw()});
+  draw();
+}
+
+
+/* ---------- Kvíz ---------- */
+var QSTATE={};
+function mountQuiz(host,key,qs){
+  var st=QSTATE[key]||(QSTATE[key]={i:0,score:0,picked:null});
+  function render(){
+    if(st.i>=qs.length){
+      host.innerHTML='<div class="meta"><span>Kvíz hotov</span><span>'+qs.length+' otázek</span></div><div class="score">'+st.score+' / '+qs.length+'</div><p style="margin:0">'+(st.score===qs.length?'Bez chyby.':'Projdi výklad a zkus to znovu.')+'</p><button type="button" class="btn ghost" data-act="again">Zkusit znovu</button>';
+      return;
+    }
+    var q=qs[st.i], L='ABCD', done=st.picked!==null;
+    if(!st.ord||st.oi!==st.i){st.ord=q.o.map(function(_,x){return x});for(var z=st.ord.length-1;z>0;z--){var r=Math.floor(Math.random()*(z+1)),tmp=st.ord[z];st.ord[z]=st.ord[r];st.ord[r]=tmp}st.oi=st.i}
+    host.innerHTML='<div class="meta"><span>Otázka '+(st.i+1)+' z '+qs.length+'</span><span>skóre '+st.score+'</span></div>'+
+      '<p class="qq">'+q.q+'</p><div class="opts">'+
+      st.ord.map(function(j,pos){ var o=q.o[j];
+        var c=''; if(done){ if(j===q.a) c=' ok'; else if(j===st.picked) c=' bad'; }
+        return '<button type="button" class="opt'+c+'" data-j="'+j+'"'+(done?' disabled':'')+'><span class="l">'+L[pos]+'</span><span>'+o+'</span></button>';
+      }).join('')+'</div>'+
+      (done?'<p class="why" role="status"><b>'+(st.picked===q.a?'Správně. ':'Ne tak docela. ')+'</b>'+q.w+'</p><button type="button" class="btn" data-act="next">'+(st.i+1<qs.length?'Další otázka':'Zobrazit skóre')+'</button>':'');
+  }
+  host.addEventListener('click',function(e){
+    var o=e.target.closest('.opt'), a=e.target.closest('[data-act]');
+    if(o&&st.picked===null){st.picked=+o.dataset.j; if(st.picked===qs[st.i].a) st.score++; render();var nb=$('[data-act="next"]',host);if(nb) nb.focus({preventScroll:true})}
+    else if(a){ if(a.dataset.act==='next'){st.i++;st.picked=null} else {st.i=0;st.score=0;st.picked=null} render(); }
+  });
+  render();
+}
+
+/* ---------- Aplikace ---------- */
+var app=$('#app'), nav=$('#nav'), main=$('#main');
+var S={mod:'spect',topic:0};
+
+function parseHash(){
+  var m=/^#(spect|pet)-([0-8])$/.exec(location.hash);
+  if(m){S.mod=m[1];S.topic=+m[2]}
+}
+function go(mod,topic){ location.hash=mod+'-'+topic }
+
+function render(){
+  redrawers.length=0;
+  app.dataset.mod=S.mod;
+  $('#b-spect').setAttribute('aria-pressed',String(S.mod==='spect'));
+  $('#b-pet').setAttribute('aria-pressed',String(S.mod==='pet'));
+  nav.innerHTML=OUTLINE.map(function(o){
+    var ready=!!CONTENT[S.mod][o.id];
+    return (o.id===1?'<span class="sep"></span>':'')+'<button type="button" data-t="'+o.id+'"'+(o.id===S.topic?' aria-current="page"':'')+'><span class="no">'+(o.no||o.id)+'</span><span>'+o.t+(o.hw?'<em>HW</em>':'')+'</span><i class="dot'+(ready?' on':'')+'" title="'+(ready?'k dispozici':'připravuje se')+'"></i></button>';
+  }).join('');
+  var o=OUTLINE[S.topic], c=CONTENT[S.mod][S.topic], h='';
+  h+='<p class="eyebrow">'+MODNAME[S.mod]+'</p><h2>'+(o.id?o.id+'. ':'')+o.t+'</h2>';
+  if(c){
+    c.blocks.forEach(function(b){
+      if(typeof b==='string') h+='<div class="prose">'+b+'</div>';
+      else if(b.gloss) h+='<details class="gloss"><summary>Slovníček pojmů</summary><dl>'+GLOSS[S.mod].map(function(g){return '<dt>'+g[0]+'</dt><dd>'+g[1]+'</dd>'}).join('')+'</dl></details>';
+      else h+='<figure class="widget"><figcaption><strong>'+b.title+'</strong><span>'+b.lead+'</span></figcaption><div data-w="'+b.w+'" data-k="'+(b.k||'')+'"></div></figure>';
+    });
+    h+='<p class="sec">Kvíz</p><section class="quiz" id="quiz" aria-label="Kvíz"></section>';
+    if(c.src) h+='<p class="sec">Zdroje</p><p class="srcs">'+c.src+'</p>';
+  }else{
+    h+='<div class="soon"><p><b>Tento modul se připravuje.</b> Z osnovy se v něm projde:</p><ul>'+o.a.map(function(x){return '<li>'+x+'</li>'}).join('')+'</ul><p>Stejným způsobem jako úvod: výklad od základů, animace a kvíz s vysvětlením.</p>'+
+       (o.id>=5&&o.id<=7?'<p>Čísla a pravidla pro ČR doplníme až po ověření ve zdrojích.</p>':'')+'</div>';
+  }
+  var prev=OUTLINE[S.topic-1], next=OUTLINE[S.topic+1];
+  h+='<div class="pager">'+(prev?'<button type="button" class="btn ghost" data-t="'+prev.id+'">← '+prev.t+'</button>':'<span></span>')+(next?'<button type="button" class="btn ghost" data-t="'+next.id+'">'+next.t+' →</button>':'')+'</div>';
+  h+='<p class="foot">Stav: koncept k validaci. Fyzikální údaje a ekonomická část budou před finální verzí ověřeny ve zdrojích, u každého tématu je uveden seznam použitých.</p>';
+  main.innerHTML=h;
+  if(c){
+    main.querySelectorAll('[data-w]').forEach(function(el){
+      var t=el.dataset.w;
+      if(t==='decay') mountDecay(el,el.dataset.k);
+      else if(t==='bateman') mountBateman(el);
+      else if(t==='annih') mountAnnih(el);
+      else if(t==='emis') mountEmis(el);
+      else if(t==='collim') mountCollim(el);
+      else if(t==='recon') mountRecon(el,el.dataset.k);
+      else if(t==='lor') mountLor(el);
+      else if(t==='logist') mountLogist(el);
+      else if(t==='stack') mountStack(el,el.dataset.k);
+      else if(t==='stop') mountStop(el,el.dataset.k);
+      else if(t==='pmt') mountPmt(el,el.dataset.k);
+      else if(t==='locate') mountLocate(el,el.dataset.k);
+      else if(t==='direct') mountDirect(el);
+ else if(t==='colres') mountColres(el);
+ else if(t==='compton') mountCompton(el,el.dataset.k);
+ else if(t==='spectrum') mountSpectrum(el,el.dataset.k);
+ else if(t==='coinc') mountCoinc(el);
+ else if(t==='rand') mountRand(el);
+ else if(t==='tof') mountTof(el);
+ else if(t==='petres') mountPetRes(el);
+    });
+    mountQuiz($('#quiz'),S.mod+'-'+S.topic,c.quiz);
+  }
+}
+
+$('#b-spect').addEventListener('click',function(){go('spect',S.topic)});
+$('#b-pet').addEventListener('click',function(){go('pet',S.topic)});
+document.addEventListener('click',function(e){
+  var b=e.target.closest('[data-t]'); if(!b||!(nav.contains(b)||main.contains(b))) return;
+  go(S.mod,+b.dataset.t); window.scrollTo(0,0);
+});
+window.addEventListener('hashchange',function(){parseHash();render()});
+var redrawAll=function(){redrawers.forEach(function(f){f()})};
+if(window.matchMedia) window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',redrawAll);
+new MutationObserver(redrawAll).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+
+parseHash(); render();
+})();
+</script>
